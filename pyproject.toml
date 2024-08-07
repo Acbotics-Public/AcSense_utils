@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acsense_utils"
+version = "0.0.1"
+dependencies = [
+]
+
+[project.scripts]
+acsense-parse = "acsense_utils.parser_gui:run_parser_gui"
+acsense-plot = "acsense_utils.plotter:run_plotter"
