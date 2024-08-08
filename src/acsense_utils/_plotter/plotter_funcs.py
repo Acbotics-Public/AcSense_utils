@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import os
 import glob
 import scipy
@@ -8,16 +6,18 @@ import logging
 
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+from matplotlib import use as mpl_use
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import FormatStrFormatter
 
+mpl_use("agg")
+
 logger = logging.getLogger(__name__)
 
-## Adjust mag cal as needed
-
-magz_cal = -15000
-magx_cal = -2800
-magy_cal = -2800
+# ## Adjust mag cal as needed
+# magz_cal = -15000
+# magx_cal = -2800
+# magy_cal = -2800
 
 
 FS = 52734
@@ -25,71 +25,71 @@ TICK = 1e-9  # sample interval for internal timestamp is s
 acc_correction = 9.81 / 2059  # acceleration correction for m/s^2
 
 
-def get_heading(MAG_data, IMU_data):
-    # process magnetometer data using IMU data
-    # first, rotate mag data based on pitch/roll:
-    # id the min/max
-    # take the median of the top 5 values and the bottom 5 values:
-    sorted_z = np.array(sorted(MAG_data["mag_z"]))
-    sorted_y = np.array(sorted(MAG_data["mag_y"]))
-    sorted_x = np.array(sorted(MAG_data["mag_x"]))
-    cal_x = (np.median(sorted_x[-5:]) + np.median(sorted_x[0:5])) / 2
-    cal_y = (np.median(sorted_y[-5:]) + np.median(sorted_y[0:5])) / 2
-    cal_z = (np.median(sorted_z[-5:]) + np.median(sorted_z[0:5])) / 2
-    # logger.info(IMU_data.keys())
-    logger.info("(max+min)/2 of mag raw values:")
-    logger.info("magz_cal")
-    logger.info(cal_z)
-    logger.info("magx_cal")
-    logger.info(cal_x)
-    logger.info("magy_cal")
-    logger.info(cal_y)
-    # logger.info("if doing mag cal, use these values for magz_cal, magx_cal, magy_cal")
-    # logger.info(magx_cal)
-    # blarg
-    pitch_interp = scipy.interpolate.interp1d(
-        IMU_data["timestamp"], IMU_data["Pitch"], fill_value="extrapolate"
-    )
-    roll_interp = scipy.interpolate.interp1d(
-        IMU_data["timestamp"], IMU_data["Roll"], fill_value="extrapolate"
-    )
-    mag_pitch = pitch_interp(MAG_data["timestamp"])
-    mag_roll = roll_interp(MAG_data["timestamp"])
+# def get_heading(MAG_data, IMU_data):
+#     # process magnetometer data using IMU data
+#     # first, rotate mag data based on pitch/roll:
+#     # id the min/max
+#     # take the median of the top 5 values and the bottom 5 values:
+#     sorted_z = np.array(sorted(MAG_data["mag_z"]))
+#     sorted_y = np.array(sorted(MAG_data["mag_y"]))
+#     sorted_x = np.array(sorted(MAG_data["mag_x"]))
+#     cal_x = (np.median(sorted_x[-5:]) + np.median(sorted_x[0:5])) / 2
+#     cal_y = (np.median(sorted_y[-5:]) + np.median(sorted_y[0:5])) / 2
+#     cal_z = (np.median(sorted_z[-5:]) + np.median(sorted_z[0:5])) / 2
+#     # logger.info(IMU_data.keys())
+#     logger.info("(max+min)/2 of mag raw values:")
+#     logger.info("magz_cal")
+#     logger.info(cal_z)
+#     logger.info("magx_cal")
+#     logger.info(cal_x)
+#     logger.info("magy_cal")
+#     logger.info(cal_y)
+#     # logger.info("if doing mag cal, use these values for magz_cal, magx_cal, magy_cal")
+#     # logger.info(magx_cal)
+#     # blarg
+#     pitch_interp = scipy.interpolate.interp1d(
+#         IMU_data["timestamp"], IMU_data["Pitch"], fill_value="extrapolate"
+#     )
+#     roll_interp = scipy.interpolate.interp1d(
+#         IMU_data["timestamp"], IMU_data["Roll"], fill_value="extrapolate"
+#     )
+#     mag_pitch = pitch_interp(MAG_data["timestamp"])
+#     mag_roll = roll_interp(MAG_data["timestamp"])
 
-    hdg2 = []
-    new_x = []
-    new_y = []
-    new_z = []
-    for ii in range(0, len(mag_pitch)):
-        cur_data = MAG_data.iloc[ii]
-        # logger.info(mag_pitch[ii])
-        # logger.info(mag_roll[ii])
-        myrot = scipy.spatial.transform.Rotation.from_euler(
-            "YX", np.array([mag_pitch[ii], mag_roll[ii]]), degrees=True
-        )
-        new_mag = myrot.apply(
-            [
-                cur_data["mag_x"] - magx_cal,
-                cur_data["mag_y"] - magy_cal,
-                cur_data["mag_z"] - magz_cal,
-            ]
-        )
-        # logger.info(new_mag[2])
-        new_x.append(new_mag[0])
-        new_y.append(new_mag[1])
-        new_z.append(new_mag[2])
-        heading2 = -np.arctan2(new_mag[1], new_mag[0]) * 180 / np.pi
-        hdg2.append(heading2)
-    MAG_data["heading"] = (
-        np.arctan2(MAG_data["mag_z"] - magz_cal, MAG_data["mag_x"] - magx_cal)
-        * 180
-        / np.pi
-    )
-    MAG_data["heading2"] = hdg2
-    MAG_data["pitch"] = mag_pitch
-    MAG_data["roll"] = mag_roll
+#     hdg2 = []
+#     new_x = []
+#     new_y = []
+#     new_z = []
+#     for ii in range(0, len(mag_pitch)):
+#         cur_data = MAG_data.iloc[ii]
+#         # logger.info(mag_pitch[ii])
+#         # logger.info(mag_roll[ii])
+#         myrot = scipy.spatial.transform.Rotation.from_euler(
+#             "YX", np.array([mag_pitch[ii], mag_roll[ii]]), degrees=True
+#         )
+#         new_mag = myrot.apply(
+#             [
+#                 cur_data["mag_x"] - magx_cal,
+#                 cur_data["mag_y"] - magy_cal,
+#                 cur_data["mag_z"] - magz_cal,
+#             ]
+#         )
+#         # logger.info(new_mag[2])
+#         new_x.append(new_mag[0])
+#         new_y.append(new_mag[1])
+#         new_z.append(new_mag[2])
+#         heading2 = -np.arctan2(new_mag[1], new_mag[0]) * 180 / np.pi
+#         hdg2.append(heading2)
+#     MAG_data["heading"] = (
+#         np.arctan2(MAG_data["mag_z"] - magz_cal, MAG_data["mag_x"] - magx_cal)
+#         * 180
+#         / np.pi
+#     )
+#     MAG_data["heading2"] = hdg2
+#     MAG_data["pitch"] = mag_pitch
+#     MAG_data["roll"] = mag_roll
 
-    return MAG_data
+#     return MAG_data
 
 
 def process_IMU(IMU_data):
@@ -166,10 +166,6 @@ def rotate_IMU_data(rot_info, cur_data, Pitch, Roll):
 def plot_lat_lon(caxis, gps_data, ax):
     ax.clear()
 
-    ii = 0
-
-    # caxis_vec = caxis[(not (gps_data["lat"].isnull()))]
-    # ax.plot(gps_data_select["lon"], gps_data_select["lat"], "k.")
     ax.scatter(gps_data["lon"], gps_data["lat"], c=caxis[0], alpha=0.5)
     ax.set_xlabel("Lon")
     ax.set_ylabel("Lat")
@@ -184,19 +180,17 @@ def plot_pitchrollyaw(xaxis, Mag_data, ax):
 
     # first, pitch/roll:
 
-    ax.plot(x_axis, Mag_data["pitch"])
-    ax.plot(x_axis, Mag_data["roll"])
-    ax.plot(x_axis, Mag_data["heading"])
-    ax.plot(x_axis, Mag_data["heading2"])
-    ax.legend(
-        ["Pitch NED deg", "Roll NED deg", "Heading naive", "heading pr corrected"]
-    )
+    ax.plot(x_axis, Mag_data["pitch"], label="Pitch NED deg")
+    ax.plot(x_axis, Mag_data["roll"], label="Roll NED deg")
+    ax.plot(x_axis, Mag_data["heading"], label="Heading naive")
+    ax.plot(x_axis, Mag_data["heading2"], label="heading pr corrected")
+    ax.legend()
     ax.set_ylabel("Degrees")
     ax.set_title("Pitch/roll/yaw")
     ax.set_xlabel(xlabel)
 
 
-def plot_image_capture_times(xaxis, ax):
+def plot_image_capture_times(xaxis, Cam_Meta, ax):
     x_axis = xaxis[0]
     xlabel = xaxis[1]
     ax.plot(x_axis, x_axis * 0, "rx")
@@ -209,11 +203,11 @@ def plot_IMU_accelerations(xaxis, IMU_data, ax):
     x_axis = xaxis[0]
     xlabel = xaxis[1]
 
-    ax.plot(x_axis, IMU_data["accx_rot"], ".")
-    ax.plot(x_axis, IMU_data["accy_rot"], ".")
-    ax.plot(x_axis, IMU_data["accz_rot"], ".")
+    ax.plot(x_axis, IMU_data["accx_rot"], ".", label="accx")
+    ax.plot(x_axis, IMU_data["accy_rot"], ".", label="accy")
+    ax.plot(x_axis, IMU_data["accz_rot"], ".", label="accz")
     # ax.plot(x_axis, IMU_data["acc_total"])
-    ax.legend(["accx", "accy", "accz"])
+    ax.legend()
     ax.set_ylabel("acc m/s")
     ax.set_title("IMU rotated accelerations")
     ax.set_xlabel(xlabel)
@@ -281,19 +275,17 @@ def plot_ADC_geophone(xaxis, ADC_data, ax):
 def plot_raw_mag(xaxis, mag_raw, ax):
     x_axis = xaxis[0]
     xlabel = xaxis[1]
-    ax.plot(x_axis, mag_raw["mag_x"], "b.")
-    ax.plot(x_axis, x_axis * 0 + magx_cal, "b--")
-    ax.plot(x_axis, mag_raw["mag_y"], "r.")
-    ax.plot(x_axis, x_axis * 0 + magy_cal, "r--")
-    ax.plot(x_axis, mag_raw["mag_z"], "g.")
-    ax.plot(x_axis, x_axis * 0 + magz_cal, "g--")
-    ax.legend(
-        ["raw mag x", "mag x cal", "raw mag y", "mag y cal", "raw mag z", "mag z cal"]
-    )
+    ax.plot(x_axis, mag_raw["mag_x"], "b.", label="raw mag x")
+    ax.plot(x_axis, mag_raw["mag_y"], "r.", label="raw mag y")
+    ax.plot(x_axis, mag_raw["mag_z"], "g.", label="raw mag z")
+    # ax.plot(x_axis, x_axis * 0 + magx_cal, "b--", label="mag x cal")
+    # ax.plot(x_axis, x_axis * 0 + magy_cal, "r--", label="mag y cal")
+    # ax.plot(x_axis, x_axis * 0 + magz_cal, "g--", label="mag z cal")
+    ax.legend()
     ax.set_ylabel("Raw Mag")
 
 
-def plot_PTS(xaxis, PTS_data, ptype, ax):
+def plot_PTS(xaxis, PTS_data, ax):
     x_axis = xaxis[0]
     xlabel = xaxis[1]
 
@@ -310,7 +302,7 @@ def plot_PTS(xaxis, PTS_data, ptype, ax):
     ax.set_xlabel(xlabel)
 
 
-def plot_PTSInt(xaxis, PTS_data, ptype, ax):
+def plot_PTSInt(xaxis, PTS_data, ax):
     x_axis = xaxis[0]
     xlabel = xaxis[1]
 
@@ -336,16 +328,16 @@ def plot_CTD(xaxis, ctd_data, ax):
     svar = "data2"
     ax.set_title("CTD data")
     # plot PTS data!
-    ax.plot(x_axis, ctd_data[pvar].to_numpy(), "g.")
+    ax.plot(x_axis, ctd_data[pvar].to_numpy(), "g.", label="depth")
     ax.yaxis.label.set_color("green")
     ax.set_ylabel("Pressure (dbar)")
-    ax.plot(x_axis, ctd_data[svar].to_numpy(), "r-")
+    ax.plot(x_axis, ctd_data[svar].to_numpy(), "r-", label="salinity")
 
     # ax2 = ax.twinx()
-    ax.plot(x_axis, ctd_data[tvar].to_numpy(), "b-")
+    ax.plot(x_axis, ctd_data[tvar].to_numpy(), "b-", label="temp")
     ax.set_ylabel("Temp (deg C)")
     ax.yaxis.label.set_color("blue")
-    ax.legend(["depth", "salinity", "temp"])
+    ax.legend()
     # ax.set_xlabel(xlabel)
     ax.set_ylim([0, 40])
 
@@ -411,60 +403,6 @@ def get_xaxis(sensor_data, RTC_data=None):
     return [tstamps, xlabeln]
 
 
-def plot_multichannel_acoustics(xaxis, acoustic_data, fname_out):
-    x_axis = xaxis[0] - xaxis[0][0]
-    label = "seconds"  # xaxis[1]
-    all_cols = acoustic_data.columns
-    ch_cols = []
-    for col in all_cols:
-        if "channel_" in col:
-            ch_cols.append(col)
-    # ch_cols = acoustic_data.columns[2:-1]
-    logger.info(ch_cols)
-
-    # plot!
-    fig, ax = plt.subplots(len(ch_cols), 1, sharex=True, sharey=True, figsize=(20, 10))
-    ii = 0
-    for ch in ch_cols[:]:
-        cur_data = acoustic_data[ch].to_numpy()
-        ax[ii].plot(x_axis, cur_data - np.mean(cur_data))
-        ax[ii].set_ylabel(str(ii))
-        del cur_data
-        ii = ii + 1
-    logger.info(ii)
-    ax[ii - 1].set_xlabel(label)
-    plt.savefig(fname_out)
-    # plt.show()
-    plt.close()
-    # plot select channel spectrogram:
-    fig, ax = plt.subplots(2, 1, sharex=True, sharey=True, figsize=(20, 10))
-    ax[0].specgram(
-        acoustic_data[ch_cols[0]].to_numpy(),
-        Fs=FS,
-        NFFT=int(np.floor(FS / 10)),
-        noverlap=int(np.floor(FS / 12)),
-        vmin=-65,
-        vmax=0,
-    )
-    ax[0].set_xlabel("ch 0")
-    ax[1].specgram(
-        acoustic_data[ch].to_numpy(),
-        Fs=FS,
-        NFFT=int(np.floor(FS / 10)),
-        noverlap=int(np.floor(FS / 12)),
-        vmin=-65,
-        vmax=0,
-    )
-    # ax[0].set_ylim([0, 6000])
-    ax[0].set_xlabel("ch " + str(ch))
-    plt.savefig(fname_out.split(".png")[0] + "_spec_firstlast.png")
-    # plt.show()
-    plt.close()
-    del fig, ax
-
-    # plt.show()
-
-
 def get_GPS_RTC_data(GPS_data):
 
     GPS_select = GPS_data[["RMC" in str(x) for x in GPS_data["raw_nmea"].to_numpy()]]
@@ -478,130 +416,6 @@ def get_GPS_RTC_data(GPS_data):
         # logger.info(GPS_select)
 
         return GPS_select
-
-
-def plot_data_dict(data_dict, RTC_data, outfile, intadc_data=None):
-    rows = len(data_dict.keys())
-    cols = 1
-    if "ept" in data_dict.keys() and "cam" in data_dict.keys():
-        rows = rows - 1
-
-    if intadc_data is not None:
-        rows = rows + 2
-        fig, ax = plt.subplots(rows, cols, sharex=False, figsize=(20, 10))
-    else:
-        fig, ax = plt.subplots(rows, cols, sharex=False, figsize=(20, 10))
-
-    ax_ind = 0
-    ax_start = 0
-    ax_end = 0
-    if intadc_data is not None:
-        intadc_axis = get_xaxis(intadc_data, RTC_data)
-        # logger.info(intadc_data.shape)
-        # blarg
-        if intadc_data.shape[1] == 5:
-            # assume geophone!
-            ax_start = intadc_axis[0][0]
-            ax_end = intadc_axis[0][-1]
-            plot_ADC_geophone(intadc_axis, intadc_data, ax[ax_ind])
-            ax[ax_ind].set_xlim([ax_start, ax_end])
-            ax_ind = ax_ind + 1
-            # plt.show()
-        else:
-            ax_start = intadc_axis[0][0]
-            ax_end = intadc_axis[0][-1]
-            plot_ADC_hydrophone(intadc_axis, intadc_data, ax[ax_ind])
-            ax[ax_ind].set_xlim([ax_start, ax_end])
-            ax_ind = ax_ind + 1
-            plot_ADC_hydrophone_specgram(intadc_axis, intadc_data, ax[ax_ind])
-            ax[ax_ind].set_xlim([ax_start, ax_end])
-
-            fig2, ax2 = plt.subplots(2, 1, sharex=True)
-            plot_ADC_hydrophone(intadc_axis, intadc_data, ax2[0])
-            plot_ADC_hydrophone_specgram(intadc_axis, intadc_data, ax2[1])
-
-            fig2.tight_layout()
-            fig2.savefig(outfile.split(".")[0] + "_acoust.png")
-
-            ax_ind = ax_ind + 1
-    if "ctd" in data_dict.keys():
-
-        plot_CTD(
-            get_xaxis(data_dict["ctd"], RTC_data),
-            data_dict["ctd"],
-            ax[ax_ind],
-        )  # plot pitch/roll/yaw
-        if ax_end != 0:
-            ax.set_xlim([ax_start, ax_end])
-
-        ax_ind = ax_ind + 1
-    if "gps" in data_dict.keys():
-        plot_lat_lon(
-            get_xaxis(data_dict["gps"], RTC_data), data_dict["gps"], ax[ax_ind]
-        )
-
-        ax_ind = ax_ind + 1
-    if "imu_mag" in data_dict.keys():
-        plot_pitchrollyaw(
-            get_xaxis(data_dict["imu_mag"], RTC_data), data_dict["imu_mag"], ax[ax_ind]
-        )  # plot pitch/roll/yaw
-        if ax_end != 0:
-            ax[ax_ind].set_xlim([ax_start, ax_end])
-
-        ax_ind = ax_ind + 1
-    if "ept" in data_dict.keys():
-        plot_PTS(
-            get_xaxis(data_dict["ept"], RTC_data), data_dict["ept"], "ext", ax[ax_ind]
-        )
-        if "cam" in data_dict.keys():
-            plot_image_capture_times(get_xaxis(data_dict["cam"], RTC_data), ax[ax_ind])
-            ax[ax_ind].legend(["PT", "Image Captured"])
-        if ax_end != 0:
-            ax[ax_ind].set_xlim([ax_start, ax_end])
-
-        ax_ind = ax_ind + 1
-    else:
-        if "cam" in data_dict.keys():
-            plot_image_capture_times(get_xaxis(data_dict["cam"], RTC_data), ax[ax_ind])
-            if ax_end != 0:
-                ax[ax_ind].set_xlim([ax_start, ax_end])
-
-        if "ipt" in data_dict.keys():
-            plot_PTSInt(
-                get_xaxis(data_dict["ipt"], RTC_data),
-                data_dict["ipt"],
-                "ipt",
-                ax[ax_ind],
-            )
-        ax_ind = ax_ind + 1
-    if "imu" in data_dict.keys():
-        plot_IMU_accelerations(
-            get_xaxis(data_dict["imu"], RTC_data), data_dict["imu"], ax[ax_ind]
-        )
-        if ax_end != 0:
-            ax[ax_ind].set_xlim([ax_start, ax_end])
-
-        ax_ind = ax_ind + 1
-    if "ping" in data_dict.keys():
-        plot_ping(get_xaxis(data_dict["ping"], RTC_data), data_dict["ping"], ax[ax_ind])
-        if ax_end != 0:
-            ax[ax_ind].set_xlim([ax_start, ax_end])
-
-        ax_ind = ax_ind + 1
-    if "mag_raw" in data_dict.keys():
-        plot_raw_mag(
-            get_xaxis(data_dict["mag_raw"], RTC_data), data_dict["mag_raw"], ax[ax_ind]
-        )
-        if ax_end != 0:
-            ax[ax_ind].set_xlim([ax_start, ax_end])
-
-        ax_ind = ax_ind + 1
-
-    fig.tight_layout()
-    fig.savefig(outfile)
-
-    # plt.show()
-    plt.close()
 
 
 def plot_cam_frame_points(data_dict, RTC_data, indir, outdir, intadc_data=None):

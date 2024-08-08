@@ -1,23 +1,13 @@
 #!/usr/bin/env python3
 
-# example plotter of sensor data v. time!
 import os
 import pandas as pd
 import argparse
 import logging
 import glob
 
-from ._plotter.plotter_funcs import *
 
-## Adjust mag cal as needed
-magz_cal = -15000
-magx_cal = -2800
-magy_cal = -2800
-
-
-FS = 30000
-TICK = 1e-9  # sample interval for internal timestamp is s
-acc_correction = 9.81 / 2059  # acceleration correction for m/s^2
+from ._plotter.plotter_core import *
 
 
 parser = argparse.ArgumentParser(
@@ -44,6 +34,9 @@ args, unknown = parser.parse_known_args()
 if args.debug and not args.verbose:
     args.verbose = True
 
+# Expand dir/path to absolute
+args.dir = os.path.abspath(os.path.expanduser(args.dir))
+
 logging.basicConfig(
     # format="[%(asctime)s] %(name)s.%(funcName)s() : \n\t%(message)s",
     format=(
@@ -68,25 +61,38 @@ if not os.path.exists(args.dir):
     exit(1)
 
 
+def get_file_root(fn):
+    basename = os.path.basename(fn)
+    dirname = os.path.dirname(fn)
+    idx = 2 if basename.startswith("AC") else 3
+    file_root = os.path.join(dirname, "_".join(basename.split("_")[0:idx]))
+    return file_root
+
+
 def locate_files(pattern):
 
     select_files = sorted(glob.glob(os.path.join(args.dir, f"{pattern}*.csv")))
     logger.info(f"Located {len(select_files)} {pattern} files to process")
-    select_file_roots = sorted(set(["_".join(x.split("_")[0:4]) for x in select_files]))
+    select_file_roots = sorted(set([get_file_root(x) for x in select_files]))
 
-    return select_files, select_file_roots
+    return select_file_roots
 
 
-def run_plotter():
+def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False):
+    if parsed_dir:
+        args.dir = parsed_dir
+    if plot_ac:
+        args.plot_ac = plot_ac
+    if plot_cam:
+        args.plot_cam = plot_cam
+
     logger.info(f"Processing data from : {args.dir}")
-    _, sens_file_roots = locate_files("SENS")
-    _, imu_file_roots = locate_files("IMU")
+    sens_file_roots = locate_files("SENS")
+    imu_file_roots = locate_files("IMU")
 
-    old_data_dict = {}
-
-    for file_root in sens_file_roots + imu_file_roots:
+    for sens_root in sens_file_roots + imu_file_roots:
         data_dict = {}
-        logger.info(f"Processing file root : {os.path.basename(file_root)}")
+        logger.info(f"Processing file root : {os.path.basename(sens_root)}")
 
         sens_features = [
             # (key, file_pattern, loginfo_pattern),
@@ -110,7 +116,7 @@ def run_plotter():
             _file_pattern = feat[1]
             _loginfo_pattern = feat[2]
 
-            _file = glob.glob(file_root + f"*{_file_pattern}.csv")
+            _file = glob.glob(sens_root + f"*{_file_pattern}.csv")
 
             if len(_file) > 1:
                 logger.warning(
@@ -131,13 +137,13 @@ def run_plotter():
             imu_data_corrected = process_IMU(data_dict["imu"])
             data_dict["imu"] = imu_data_corrected
 
-            if "mag_raw" in data_dict:
-                logger.info("Processing Magnetometer correction")
-                # process mag to get heading
-                mag_data_corrected = get_heading(
-                    data_dict["mag_raw"], imu_data_corrected
-                )
-                data_dict["imu_mag"] = mag_data_corrected
+            # if "mag_raw" in data_dict:
+            #     logger.info("Processing Magnetometer correction")
+            #     # process mag to get heading
+            #     mag_data_corrected = get_heading(
+            #         data_dict["mag_raw"], imu_data_corrected
+            #     )
+            #     data_dict["imu_mag"] = mag_data_corrected
 
         # handle timing reference from known data:
         RTC_data = None
@@ -158,7 +164,7 @@ def run_plotter():
         # next, get and plot the acoustic data:
         logger.info("plotting sens data")
         # Plot!
-        outfilename = file_root + "_sensFilePlot.png"
+        outfilename = sens_root + "_sensFilePlot.png"
 
         plot_data_dict(data_dict, RTC_data, outfilename, intadc_data)
 
@@ -166,34 +172,33 @@ def run_plotter():
 
         if args.plot_ac:
 
-            acoustic_files = sorted(glob.glob(os.path.join(args.dir, "AC*spiadc.csv")))
-            acoust_type = "EXT"
-            if len(acoustic_files) == 0:
-                acoustic_files = sorted(
-                    glob.glob(os.path.join(args.dir, "AC*intadc.csv"))
-                )
-                acoust_type = "INT"
+            ac_root = get_file_root(sens_root.replace("SENS", "AC"))
+            acoustic_files = sorted(glob.glob(ac_root + "*spiadc.csv"))
+            acoustic_files += sorted(glob.glob(ac_root + "*intadc.csv"))
 
             # logger.info(acoustic_files)
             for acoustic_file in acoustic_files:
+                logger.info(f"plotting ac data : {os.path.basename(acoustic_file)}")
                 ac_data = pd.read_csv(acoustic_file)
-                #        logger.info(ac_data)
 
                 # create a plot:
-                plot_name = acoustic_file.split(".dat")[0] + ".png"
-                if acoust_type == "EXT":
+                plot_name = acoustic_file.replace(".csv", ".png")
+                if acoustic_file.endswith("spiadc.csv"):
                     plot_multichannel_acoustics(
                         get_xaxis(ac_data, RTC_data), ac_data, plot_name
                     )
                 else:
-
                     plot_data_dict(data_dict, RTC_data, plot_name, ac_data)
                 del ac_data
                 plt.close("all")
 
         if args.plot_cam:
-            # plot cam
-            plot_cam_frame_points(data_dict, RTC_data, plot_name, intadc_data=ac_data)
+            logger.warning(
+                "The plot_cam feature is currently disabled! Please check for upcoming updates"
+            )
+            # plot_cam_frame_points(data_dict, RTC_data, plot_name)
+
+    logger.info("Done!")
 
 
 if __name__ == "__main__":

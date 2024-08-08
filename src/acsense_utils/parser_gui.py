@@ -9,6 +9,7 @@ from tkinter import filedialog
 
 
 from ._parser.parser import *
+from .plotter import run_plotter
 
 parser = argparse.ArgumentParser(
     prog="AcSense Parser",
@@ -59,30 +60,43 @@ class MenuBar(tk.Menu):
         menu_file = tk.Menu(self, tearoff=0)
         menu_parse = tk.Menu(self, tearoff=0)
         menu_export = tk.Menu(self, tearoff=0)
+        menu_plot = tk.Menu(self, tearoff=0)
 
         self.add_cascade(label="File", menu=menu_file)
         self.add_cascade(label="Parse", menu=menu_parse)
         self.add_cascade(label="Export", menu=menu_export)
+        self.add_cascade(label="Plot", menu=menu_plot)
 
         menu_file_open = tk.Menu(self, tearoff=False)
         menu_file.add_cascade(label="Open", menu=menu_file_open)
-        menu_file_open.add_command(label="Open file", command=lambda: self.open_file())
-        menu_file_open.add_command(
-            label="Open directory", command=lambda: self.open_dir()
-        )
+        menu_file_open.add_command(label="Open file", command=self.open_file)
+        menu_file_open.add_command(label="Open directory", command=self.open_dir)
         menu_file_open.add_command(
             label="Open, parse & export directory",
-            command=lambda: self.open_parse_dir(),
+            command=self.open_parse_dir,
         )
 
-        menu_file.add_command(label="Quit", command=lambda: parent.quit_application())
+        menu_file.add_command(label="Quit", command=parent.quit_application)
 
         menu_parse.add_command(
             label="Parse loaded file or directory",
-            command=lambda: self.parse_path(),
+            command=self.parse_path,
         )
-        menu_export.add_command(
-            label="Export data to CSV", command=lambda: self.export_to_csv()
+
+        menu_export.add_command(label="Export data to CSV", command=self.export_to_csv)
+
+        menu_plot.add_command(label="Plot parsed SENS data", command=self.plot_parsed)
+        menu_plot.add_command(
+            label="Plot parsed SENS+AC data",
+            command=lambda: self.plot_parsed(plot_ac=True),
+        )
+        menu_plot.add_command(
+            label="Plot parsed SENS+Camera data",
+            command=lambda: self.plot_parsed(plot_cam=True),
+        )
+        menu_plot.add_command(
+            label="Plot parsed data (ALL)",
+            command=lambda: self.plot_parsed(plot_ac=True, plot_cam=True),
         )
 
     def open_file(self):
@@ -141,6 +155,20 @@ class MenuBar(tk.Menu):
 
         if output_dir != "":
             self.parent.save_csv_callback(output_dir)
+
+    def plot_parsed(self, plot_ac=False, plot_cam=False):
+        parsed_dir = filedialog.askdirectory(title="Choose Parsed Data Directory")
+        logger.info(f"Selected data path : {parsed_dir}")
+
+        # verify valid files are available in selected path:
+        files = (
+            sorted(glob.glob(os.path.join(parsed_dir, "SENS*csv")))
+            + sorted(glob.glob(os.path.join(parsed_dir, "IMU*csv")))
+            + sorted(glob.glob(os.path.join(parsed_dir, "AC*csv")))
+        )
+
+        if parsed_dir != "" and len(files) > 0:
+            run_plotter(parsed_dir=parsed_dir, plot_ac=plot_ac, plot_cam=plot_cam)
 
     @staticmethod
     def get_parser_outdir(base_dir):
