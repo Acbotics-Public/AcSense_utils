@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import filedialog
 
 
-from ._parser.parser import *
+from ._parser.parser import Parser
 from .plotter import run_plotter
 
 parser = argparse.ArgumentParser(
@@ -162,13 +162,37 @@ class MenuBar(tk.Menu):
 
         # verify valid files are available in selected path:
         files = (
-            sorted(glob.glob(os.path.join(parsed_dir, "SENS*csv")))
-            + sorted(glob.glob(os.path.join(parsed_dir, "IMU*csv")))
-            + sorted(glob.glob(os.path.join(parsed_dir, "AC*csv")))
+            sorted(glob.glob(os.path.join(parsed_dir, "SENS*.csv")))
+            + sorted(glob.glob(os.path.join(parsed_dir, "IMU*.csv")))
+            + sorted(glob.glob(os.path.join(parsed_dir, "AC*.csv")))
         )
 
+        img_dir = None
+        if plot_cam:
+            img_dir = filedialog.askdirectory(title="Choose Matching Image Directory")
+            img_files = sorted(
+                glob.glob(os.path.join(img_dir, "**/IMG*.jpg"), recursive=True)
+            )
+            if len(img_files) == 0:
+                logger.error(
+                    "No valid image files located! Please check your top-level "
+                    "directory (or a subdirectory therein) contains valid "
+                    "image files (IMG*.jpg) matching the parsed data logs."
+                )
+                return
+
         if parsed_dir != "" and len(files) > 0:
-            run_plotter(parsed_dir=parsed_dir, plot_ac=plot_ac, plot_cam=plot_cam)
+            run_plotter(
+                parsed_dir=parsed_dir,
+                plot_ac=plot_ac,
+                plot_cam=plot_cam,
+                img_dir=img_dir,
+            )
+        else:
+            logger.error(
+                "No valid data files located! Please check your path contains"
+                "valid CSV files (SENS*, IMU*, AC*) produced by the parser."
+            )
 
     @staticmethod
     def get_parser_outdir(base_dir):
@@ -382,7 +406,7 @@ class Parser_GUI_Tk(tk.Tk):
                         logger.debug(
                             f"Sample rate on the stored parser is : {p['parser'].sample_rate}"
                         )
-                        p["parser"].write_csv(fn1.replace("AC", "AC_"))
+                        p["parser"].write_csv(fn1)
 
                     elif p["parser"].get_name() not in [
                         # "INTADC",
