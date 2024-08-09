@@ -1,16 +1,20 @@
-import os
-import glob
-import scipy
+"""AcSense Plotter : module-specific plotting logic
+
+This file contains the rendering logic for specific data structures.
+It is intended as an implementation reference for higher-level
+plot-generation methods in the `plotter_core.py` file.
+"""
+
 import numpy as np
 import logging
 
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 from matplotlib import use as mpl_use
-from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import FormatStrFormatter
 
 mpl_use("agg")
+plt.style.use("seaborn-v0_8-darkgrid")
+
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +25,6 @@ logger = logging.getLogger(__name__)
 
 
 FS = 52734
-TICK = 1e-9  # sample interval for internal timestamp is s
-acc_correction = 9.81 / 2059  # acceleration correction for m/s^2
 
 
 # def get_heading(MAG_data, IMU_data):
@@ -92,86 +94,48 @@ acc_correction = 9.81 / 2059  # acceleration correction for m/s^2
 #     return MAG_data
 
 
-def process_IMU(IMU_data):
-    rot_info = {}
-    rot_info["gyroz_rot"] = np.array([])
-    rot_info["accx_rot"] = []
-    rot_info["accy_rot"] = []
-    rot_info["accz_rot"] = []
-    rot_info["timestamp"] = []
-    rot_info["gyro_total"] = []
-    rot_info["acc_total"] = []
-    rot_info["Pitch"] = []
-    rot_info["Roll"] = []
-    # if pitchcalc:
-    # estimate pitch v. time:
-    raw_X = IMU_data["Accel_X"].to_numpy() * acc_correction
-    raw_Y = IMU_data["Accel_Y"].to_numpy() * acc_correction
-    raw_Z = IMU_data["Accel_Z"].to_numpy() * acc_correction
+def plot_lat_lon_2d(caxis, gps_data, fig, tick=None):
+    ax = fig.add_subplot(1, 1, 1)
 
-    roll = 180 * np.arctan2(raw_Y, raw_Z) / np.pi
-    pitch = 180 * np.arctan2(-raw_X, np.sqrt(raw_Z**2 + raw_Y**2)) / np.pi
-
-    for ll in IMU_data.index:
-        cur_data = IMU_data.loc[ll]
-
-        Pitch = pitch[ll]
-        Roll = roll[ll]
-        rot_info = rotate_IMU_data(rot_info, cur_data, Pitch, Roll)
-
-    # plot_IMU_data(IMU_data, rot_info)
-    return rot_info
-
-
-def rotate_IMU_data(rot_info, cur_data, Pitch, Roll):
-    myrot = scipy.spatial.transform.Rotation.from_euler(
-        "YX", np.array([Pitch, Roll]), degrees=True
-    )
-    gyro_z = (
-        myrot.apply([cur_data["Gyro_X"], cur_data["Gyro_Y"], cur_data["Gyro_Z"]])[2]
-        / 100
-    )
-
-    # rot_info["time"].append(cur_data["timestamp"] * AcSense_parser_utils.TICK)
-    rot_info["gyroz_rot"] = np.append(rot_info["gyroz_rot"], gyro_z)
-    rot_info["gyro_total"].append(
-        np.sqrt(
-            (cur_data["Gyro_X"] / 100) ** 2
-            + (cur_data["Gyro_Y"] / 100) ** 2
-            + (cur_data["Gyro_Z"] / 100) ** 2
-        ),
-    )
-
-    acc_xy_rot = myrot.apply(
-        [
-            cur_data["Accel_X"] * acc_correction,
-            cur_data["Accel_Y"] * acc_correction,
-            cur_data["Accel_Z"] * acc_correction,
-        ]
-    )
-
-    rot_info["timestamp"].append(cur_data["timestamp"])
-    rot_info["Pitch"].append(Pitch)
-    rot_info["Roll"].append(Roll)
-    rot_info["accx_rot"].append(acc_xy_rot[0])
-    rot_info["accy_rot"].append(acc_xy_rot[1])
-    rot_info["accz_rot"].append(acc_xy_rot[2])
-    rot_info["acc_total"].append(
-        np.sqrt(acc_xy_rot[0] ** 2 + acc_xy_rot[1] ** 2 + acc_xy_rot[2] ** 2)
-    )
-
-    return rot_info
-
-
-def plot_lat_lon(caxis, gps_data, ax):
-    ax.clear()
-
-    ax.scatter(gps_data["lon"], gps_data["lat"], c=caxis[0], alpha=0.5)
+    ss = ax.scatter(gps_data["lon"], gps_data["lat"], c=caxis[0], cmap="viridis")
     ax.set_xlabel("Lon")
     ax.set_ylabel("Lat")
-    ax.set_title("Color=" + caxis[1])
+    ax.set_title("GPS Track")
     ax.yaxis.set_major_formatter(FormatStrFormatter("%.4f"))
     ax.xaxis.set_major_formatter(FormatStrFormatter("%.4f"))
+
+    if tick:
+        idx = np.argmin(np.abs(caxis[0] - tick))
+        ax.plot(
+            gps_data["lon"].to_numpy()[idx],
+            gps_data["lat"].to_numpy()[idx],
+            "dr",
+            ms=10,
+            label="current",
+        )
+        ax.legend()
+
+    fig.colorbar(ss, label=caxis[1])
+
+
+def plot_lat_lon(xaxis, gps_data, ax):
+    x_axis = xaxis[0]
+    xlabel = xaxis[1]
+
+    ax.clear()
+
+    ax.set_title("Lat/Lon")
+
+    ax.plot(x_axis, gps_data["lon"], "g.")
+    ax.yaxis.label.set_color("green")
+    ax.set_ylabel("Lon")
+
+    ax2 = ax.twinx()
+    ax2.plot(x_axis, gps_data["lat"], "b.")
+    ax2.yaxis.label.set_color("blue")
+    ax2.set_ylabel("Lat")
+
+    ax.set_xlabel(xlabel)
 
 
 def plot_pitchrollyaw(xaxis, Mag_data, ax):
@@ -193,13 +157,16 @@ def plot_pitchrollyaw(xaxis, Mag_data, ax):
 def plot_image_capture_times(xaxis, Cam_Meta, ax):
     x_axis = xaxis[0]
     xlabel = xaxis[1]
-    ax.plot(x_axis, x_axis * 0, "rx")
+    ax.plot(x_axis, ["Capture"] * len(x_axis), "rx")
     logger.debug(
         f"camera : median( diff( timestamps ))  is: "
         f"{np.median(np.diff(x_axis)):.3} seconds"
     )
     # logger.info("min cam diff is: " + str(np.mean(np.min(x_axis))))
     # logger.info("max cam diff is: " + str(np.mean(np.max(x_axis))))
+    ax.set
+    ax.set_title("Image capture times")
+    ax.set_xlabel(xlabel)
 
 
 def plot_IMU_accelerations(xaxis, IMU_data, ax):
@@ -367,55 +334,3 @@ def plot_ping(xaxis, PING_data, ax):
     )
     ax.set_xlabel("time bin, " + xlabel)
     ax.set_ylabel("Range (m)")
-
-
-def get_xaxis(sensor_data, RTC_data=None):
-    offset = 0
-    if RTC_data is not None:
-
-        # use RTC data to look up timestamps:
-        # logger.info(RTC_data[0])
-        try:
-            rtc_start = RTC_data.iloc[0]["timestr"]
-            offset = RTC_data.iloc[0]["timestamp"]
-        except:
-            rtc_start = ""
-            offset = 0
-
-        xlabeln = "s since " + rtc_start
-
-    else:
-        logger.info("RTC data is None?")
-        xlabeln = "s"
-    # logger.info(sensor_data)
-    if type(sensor_data["timestamp"]) == type([]) or type(
-        sensor_data["timestamp"]
-    ) == type(np.array([])):
-        tstamp_array = np.array(sensor_data["timestamp"]) - offset
-    # elif isinstance(sensor_data["timestamp"],int) or isinstance(sensor_data["timestamp"],float):
-
-    else:
-        try:
-            tstamp_array = sensor_data["timestamp"].to_numpy() - offset
-        except:
-            tstamp_array = np.array([sensor_data["timestamp"]]) - offset
-    tstamps = (
-        tstamp_array * TICK
-    )  # (np.array([x["timestamp"] for x in sensor_data]) - offset) * TICK
-    # tstamps = tstamps - tstamps[0]
-    return [tstamps, xlabeln]
-
-
-def get_GPS_RTC_data(GPS_data):
-
-    GPS_select = GPS_data[["RMC" in str(x) for x in GPS_data["raw_nmea"].to_numpy()]]
-
-    GPS_select2 = GPS_select[[",A," in x for x in GPS_select["raw_nmea"].to_numpy()]]
-
-    if len(GPS_select2["raw_nmea"].to_numpy()) > 0:
-        # use good fix to set time!!
-        return GPS_select2
-    else:
-        # logger.info(GPS_select)
-
-        return GPS_select

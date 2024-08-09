@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 
+"""AcSense Plotter : plotter utility
+
+This file contains the top-level logic to prepare data for plotting,
+as well as the subsequent calls to the requisite plotting routines.
+It can be used via the run_plotter() entrypoint from another Python
+program, or via CLI using the acsense-plot entrypoint provided by
+the package installation.
+"""
+
 import os
 import pandas as pd
 import argparse
@@ -23,6 +32,12 @@ parser.add_argument(
 )
 parser.add_argument(
     "--plot_cam", action="store_true", help="Enable rendenring frames from camera data"
+)
+parser.add_argument(
+    "--img_dir",
+    type=str,
+    default=None,
+    help="Directory containing images for parsed AcSense data (required when using --plot_cam)",
 )
 parser.add_argument(
     "-v", "--verbose", action="store_true", help="Show verbose logs (detailed)"
@@ -77,23 +92,17 @@ def get_file_root(fn):
     return file_root
 
 
-def locate_files(pattern):
+def locate_files(pattern, dir=None):
+    if dir:
+        select_files = sorted(glob.glob(os.path.join(dir, f"{pattern}*.csv")))
+        logger.info(f"Located {len(select_files)} {pattern} files to process")
+        select_file_roots = sorted(set([get_file_root(x) for x in select_files]))
 
-    select_files = sorted(glob.glob(os.path.join(args.dir, f"{pattern}*.csv")))
-    logger.info(f"Located {len(select_files)} {pattern} files to process")
-    select_file_roots = sorted(set([get_file_root(x) for x in select_files]))
-
-    return select_file_roots
+        return select_file_roots
 
 
 def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
-    if parsed_dir:
-        args.dir = parsed_dir
-    if plot_ac:
-        args.plot_ac = plot_ac
     if plot_cam:
-        args.plot_cam = plot_cam
-    if args.plot_cam:
         if not (img_dir and os.path.isdir(img_dir)):
             logger.error(f"Image directory {img_dir} is not a valid directory!")
         img_files = sorted(
@@ -108,9 +117,9 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
             )
             return
 
-    logger.info(f"Processing data from : {args.dir}")
-    sens_file_roots = locate_files("SENS")
-    imu_file_roots = locate_files("IMU")
+    logger.info(f"Processing data from : {parsed_dir}")
+    sens_file_roots = locate_files("SENS", dir=parsed_dir)
+    imu_file_roots = locate_files("IMU", dir=parsed_dir)
 
     for sens_root in sens_file_roots + imu_file_roots:
         data_dict = {}
@@ -156,7 +165,7 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
         if "imu" in data_dict:
             logger.info("Processing IMU correction")
             # process IMU to get corrected pitch/roll
-            imu_data_corrected = pf.process_IMU(data_dict["imu"])
+            imu_data_corrected = process_IMU(data_dict["imu"])
             data_dict["imu"] = imu_data_corrected
 
             # if "mag_raw" in data_dict:
@@ -174,7 +183,7 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
 
         if "gps" in data_dict:
             gps_data_select = data_dict["gps"][~data_dict["gps"]["lat"].isnull()]
-            RTC_data = pf.get_GPS_RTC_data(data_dict["gps"])
+            RTC_data = get_GPS_RTC_data(data_dict["gps"])
             RTC_data = RTC_data[RTC_data["unix_time"] > 4e08]
             data_dict["gps"] = gps_data_select
 
@@ -184,7 +193,7 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
             intadc_data = data_dict["int_adc"]
 
         # next, get and plot the acoustic data:
-        logger.info("plotting sens data")
+        logger.info(f"plotting sens data for {os.path.basename(sens_root)}")
         # Plot!
         outfilename = sens_root + "_sensFilePlot.png"
 
@@ -192,7 +201,7 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
 
         ac_data = None
 
-        if args.plot_ac:
+        if plot_ac:
 
             ac_root = get_file_root(sens_root.replace("SENS", "AC"))
             logger.info(f"Processing AC file root : {os.path.basename(ac_root)}")
@@ -209,14 +218,14 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
                 plot_name = acoustic_file.replace(".csv", ".png")
                 if acoustic_file.endswith("spiadc.csv"):
                     plot_multichannel_acoustics(
-                        pf.get_xaxis(ac_data, RTC_data), ac_data, plot_name
+                        get_xaxis(ac_data, RTC_data), ac_data, plot_name
                     )
                 else:
                     plot_data_dict(data_dict, RTC_data, plot_name, ac_data)
                 del ac_data
                 plt.close("all")
 
-        if args.plot_cam:
+        if plot_cam:
             cam_root = os.path.basename(sens_root.replace("SENS_", "IMG"))
             cam_root = [x for x in img_files if cam_root in x]
             if len(cam_root) > 0:
@@ -236,4 +245,9 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
 
 
 if __name__ == "__main__":
-    run_plotter()
+    run_plotter(
+        parsed_dir=args.dir,
+        plot_ac=args.plot_ac,
+        plot_cam=args.plot_cam,
+        img_dir=args.img_dir,
+    )

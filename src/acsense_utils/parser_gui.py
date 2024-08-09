@@ -1,9 +1,12 @@
 import os
 import copy
 import glob
-import pandas as pd
 import argparse
 import logging
+import pandas as pd
+import numpy as np
+from tqdm.auto import tqdm
+
 import tkinter as tk
 from tkinter import filedialog
 
@@ -88,11 +91,11 @@ class MenuBar(tk.Menu):
         menu_plot.add_command(label="Plot parsed SENS data", command=self.plot_parsed)
         menu_plot.add_command(
             label="Plot parsed SENS+AC data",
-            command=lambda: self.plot_parsed(plot_ac=True),
+            command=lambda: self.plot_parsed(plot_ac=True, plot_cam=False),
         )
         menu_plot.add_command(
             label="Plot parsed SENS+Camera data",
-            command=lambda: self.plot_parsed(plot_cam=True),
+            command=lambda: self.plot_parsed(plot_ac=False, plot_cam=True),
         )
         menu_plot.add_command(
             label="Plot parsed data (ALL)",
@@ -141,6 +144,7 @@ class MenuBar(tk.Menu):
             self.parent.parse_callback(fn, redraw=False)
             self.parent.save_csv_callback(output_dir)
             print()
+        logger.info("Done!")
 
     def parse_path(self):
         logger.info(f"Processing path : {self.parent.file_path}")
