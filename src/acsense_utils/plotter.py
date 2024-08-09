@@ -14,6 +14,7 @@ import pandas as pd
 import argparse
 import logging
 import glob
+import json
 
 
 from ._plotter.plotter_core import *
@@ -214,14 +215,24 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
                 logger.info(f"plotting ac data : {os.path.basename(acoustic_file)}")
                 ac_data = pd.read_csv(acoustic_file)
 
+                ac_meta = None
+                try:
+                    ac_meta = json.load(
+                        open(acoustic_file.replace(".csv", "_meta.txt"), "r")
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Could not locate metadata for {os.path.basename(acoustic_file)}"
+                    )
+
                 # create a plot:
                 plot_name = acoustic_file.replace(".csv", ".png")
                 if acoustic_file.endswith("spiadc.csv"):
                     plot_multichannel_acoustics(
-                        get_xaxis(ac_data, RTC_data), ac_data, plot_name
+                        get_xaxis(ac_data, RTC_data), ac_data, ac_meta, plot_name
                     )
                 else:
-                    plot_data_dict(data_dict, RTC_data, plot_name, ac_data)
+                    plot_data_dict(data_dict, RTC_data, plot_name, ac_data, ac_meta)
                 del ac_data
                 plt.close("all")
 

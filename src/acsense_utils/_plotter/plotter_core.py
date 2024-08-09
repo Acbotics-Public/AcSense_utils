@@ -18,17 +18,11 @@ import matplotlib.image as mpimg
 
 from . import plotter_funcs as pf
 
-# FIXME : GET FS FROM LOGS!!
-from .plotter_funcs import FS
-
 mpl_use("agg")
 plt.style.use("seaborn-v0_8-darkgrid")
 
-
 logger = logging.getLogger(__name__)
 
-
-# FS = 52734
 TICK = 1e-9  # sample interval for internal timestamp is s
 acc_correction = 9.81 / 2059  # acceleration correction for m/s^2
 
@@ -193,6 +187,7 @@ def plot_data_dict(
     RTC_data,
     outfile=None,
     intadc_data=None,
+    intadc_meta=None,
     fig=False,
     tick=None,
 ):
@@ -250,7 +245,9 @@ def plot_data_dict(
             pf.plot_ADC_hydrophone(intadc_axis, intadc_data, axs[ax_ind])
             axs[ax_ind].set_xlim([ax_start, ax_end])
             ax_ind = ax_ind + 1
-            pf.plot_ADC_hydrophone_specgram(intadc_axis, intadc_data, axs[ax_ind])
+            pf.plot_ADC_hydrophone_specgram(
+                intadc_axis, intadc_data, intadc_meta, axs[ax_ind]
+            )
             axs[ax_ind].set_xlim([ax_start, ax_end])
 
             fig2, ax2 = plt.subplots(2, 1, sharex=True)
@@ -279,8 +276,10 @@ def plot_data_dict(
     plt.close()
 
 
-def plot_multichannel_acoustics(xaxis, acoustic_data, fname_out):
+def plot_multichannel_acoustics(xaxis, acoustic_data, acoustic_meta, fname_out):
     x_axis = xaxis[0] - xaxis[0][0]
+
+    FS = int(np.round(acoustic_meta["sample_rate"]))
 
     ch_cols = [x for x in acoustic_data.columns if "channel_" in x]
     logger.debug(f"available channels : {len(ch_cols)} ch")

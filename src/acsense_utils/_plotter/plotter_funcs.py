@@ -24,9 +24,6 @@ logger = logging.getLogger(__name__)
 # magy_cal = -2800
 
 
-FS = 52734
-
-
 # def get_heading(MAG_data, IMU_data):
 #     # process magnetometer data using IMU data
 #     # first, rotate mag data based on pitch/roll:
@@ -183,7 +180,9 @@ def plot_IMU_accelerations(xaxis, IMU_data, ax):
     ax.set_xlabel(xlabel)
 
 
-def plot_ADC_hydrophone_specgram(xaxis, ADC_data, ax):
+def plot_ADC_hydrophone_specgram(xaxis, ADC_data, ADC_meta, ax):
+    FS = int(np.round(ADC_meta["sample_rate"]))
+
     # logger.info(ADC_data)
     # plot geophone data
     x_axis = xaxis[0]
@@ -193,7 +192,7 @@ def plot_ADC_hydrophone_specgram(xaxis, ADC_data, ax):
     # logger.info(adc_ch_vals.shape)
     ax.specgram(
         adc_ch_vals,
-        NFFT=5000,
+        NFFT=4096,
         Fs=FS,
         xextent=(x_axis[0], x_axis[-1]),
         vmin=-65,
@@ -330,7 +329,10 @@ def plot_ping(xaxis, PING_data, ax):
     xmat, ymat = np.meshgrid(range(0, len(x_axis)), range_in_m)
 
     ax.pcolormesh(
-        xmat, ymat, 20 * np.log10((np.transpose(ping_profile_vals) + 1) / 256)
+        xmat,
+        ymat,
+        20 * np.log10((np.transpose(ping_profile_vals) + 1) / 256),
+        cmap="viridis",
     )
     ax.set_xlabel("time bin, " + xlabel)
     ax.set_ylabel("Range (m)")

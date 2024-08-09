@@ -5,6 +5,7 @@ import argparse
 import logging
 import pandas as pd
 import numpy as np
+import json
 from tqdm.auto import tqdm
 
 import tkinter as tk
@@ -407,10 +408,22 @@ class Parser_GUI_Tk(tk.Tk):
                         # "INTADC",
                         "spiadc",
                     ]:  # LATER: add Intadc config!
-                        logger.debug(
-                            f"Sample rate on the stored parser is : {p['parser'].sample_rate}"
-                        )
                         p["parser"].write_csv(fn1)
+
+                        if os.path.isfile(fn1):
+                            ac_meta = json.dumps(
+                                {
+                                    "sample_rate": p["parser"].sample_rate,
+                                    "channels": p["parser"].channels,
+                                    "bitsPerChannel": p["parser"].bitsPerChannel,
+                                    "bytesPerChannel": p["parser"].bytesPerChannel,
+                                },
+                                indent=4,
+                                sort_keys=True,
+                            )
+                            with open(fn1.replace(".csv", "_meta.txt"), "w") as fn2:
+                                fn2.write(ac_meta)
+                                fn2.write("\n")
 
                     elif p["parser"].get_name() not in [
                         # "INTADC",
@@ -436,6 +449,21 @@ class Parser_GUI_Tk(tk.Tk):
                                     data.loc[subset].to_csv(
                                         fn1, header=None, mode="a", index=True
                                     )
+
+                        if p["parser"].get_name() == "intadc" and os.path.isfile(fn1):
+                            ac_meta = json.dumps(
+                                {
+                                    "sample_rate": p["parser"].sample_rate,
+                                    "channels": p["parser"].channels,
+                                    "bitsPerChannel": p["parser"].bitsPerChannel,
+                                    "bytesPerChannel": p["parser"].bytesPerChannel,
+                                },
+                                indent=4,
+                                sort_keys=True,
+                            )
+                            with open(fn1.replace(".csv", "_meta.txt"), "w") as fn2:
+                                fn2.write(ac_meta)
+                                fn2.write("\n")
 
     def set_adc_mode(self):
         args.use_int = self.adc_mode.get()
