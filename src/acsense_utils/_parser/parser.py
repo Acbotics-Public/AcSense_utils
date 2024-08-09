@@ -174,7 +174,7 @@ class Parser:
         file_size = os.stat(fn).st_size
         if file_size == 0:
             logger.warning(
-                f"{os.path.basename(fn):40s} : file size is {file_size}! Not processing"
+                f"{os.path.basename(fn)} : file size is {file_size}! Not processing"
             )
             return self.parsers
 

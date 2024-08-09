@@ -11,8 +11,13 @@ class SPI_ADC_Data:
     def __init__(self):
         self.timestamps = []
         self.data = []
-        self.sample_rate = None
         self.sample_count = []
+
+        self.sample_rate = None
+        self.channels = None
+        self.bitsPerChannel = None
+        self.bytesPerChannel = None
+        # self.scale = None
 
     def _parse(self, header, raw_data, signed=True):
         num_channels = header["Header"].channels
@@ -50,9 +55,14 @@ class SPI_ADC_Data:
                 break
 
         self.data.append(data)
-        self.sample_rate = header["Header"].sampleRate
         self.timestamps.append(header["Header"].timestamp)
         self.sample_count.append(header["Header"].sampleCount)
+
+        self.sample_rate = header["Header"].sampleRate
+        self.channels = header["Header"].channels
+        self.bitsPerChannel = header["Header"].bitsPerChannel
+        self.bytesPerChannel = header["Header"].bytesPerChannel
+        # self.scale = header["Header"].scale
 
     def as_dict(self):
         dic = {}
@@ -130,7 +140,12 @@ class Internal_ADC_Data:
     def __init__(self):
         self.timestamps = []
         self.data = []
+
         self.sample_rate = None
+        self.channels = None
+        self.bitsPerChannel = None
+        self.bytesPerChannel = None
+        # self.scale = None
 
     def _parse(self, header, raw_data, signed=True):
         num_channels = header["Header"].channels
@@ -167,8 +182,13 @@ class Internal_ADC_Data:
                 break
 
         self.data.append(data)
-        self.sample_rate = header["Header"].sampleRate
         self.timestamps.append(header["Header"].timestamp)
+
+        self.sample_rate = header["Header"].sampleRate
+        self.channels = header["Header"].channels
+        self.bitsPerChannel = header["Header"].bitsPerChannel
+        self.bytesPerChannel = header["Header"].bytesPerChannel
+        # self.scale = header["Header"].scale
 
     def as_dict(self):
         dic = {}

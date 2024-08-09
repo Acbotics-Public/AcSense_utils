@@ -1,14 +1,18 @@
 import os
 import copy
 import glob
-import pandas as pd
 import argparse
 import logging
+import pandas as pd
+import numpy as np
+import json
+from tqdm.auto import tqdm
+
 import tkinter as tk
 from tkinter import filedialog
 
 
-from ._parser.parser import *
+from ._parser.parser import Parser
 from .plotter import run_plotter
 
 parser = argparse.ArgumentParser(
@@ -88,11 +92,11 @@ class MenuBar(tk.Menu):
         menu_plot.add_command(label="Plot parsed SENS data", command=self.plot_parsed)
         menu_plot.add_command(
             label="Plot parsed SENS+AC data",
-            command=lambda: self.plot_parsed(plot_ac=True),
+            command=lambda: self.plot_parsed(plot_ac=True, plot_cam=False),
         )
         menu_plot.add_command(
             label="Plot parsed SENS+Camera data",
-            command=lambda: self.plot_parsed(plot_cam=True),
+            command=lambda: self.plot_parsed(plot_ac=False, plot_cam=True),
         )
         menu_plot.add_command(
             label="Plot parsed data (ALL)",
@@ -141,6 +145,7 @@ class MenuBar(tk.Menu):
             self.parent.parse_callback(fn, redraw=False)
             self.parent.save_csv_callback(output_dir)
             print()
+        logger.info("Done!")
 
     def parse_path(self):
         logger.info(f"Processing path : {self.parent.file_path}")
@@ -162,13 +167,37 @@ class MenuBar(tk.Menu):
 
         # verify valid files are available in selected path:
         files = (
-            sorted(glob.glob(os.path.join(parsed_dir, "SENS*csv")))
-            + sorted(glob.glob(os.path.join(parsed_dir, "IMU*csv")))
-            + sorted(glob.glob(os.path.join(parsed_dir, "AC*csv")))
+            sorted(glob.glob(os.path.join(parsed_dir, "SENS*.csv")))
+            + sorted(glob.glob(os.path.join(parsed_dir, "IMU*.csv")))
+            + sorted(glob.glob(os.path.join(parsed_dir, "AC*.csv")))
         )
 
+        img_dir = None
+        if plot_cam:
+            img_dir = filedialog.askdirectory(title="Choose Matching Image Directory")
+            img_files = sorted(
+                glob.glob(os.path.join(img_dir, "**/IMG*.jpg"), recursive=True)
+            )
+            if len(img_files) == 0:
+                logger.error(
+                    "No valid image files located! Please check your top-level "
+                    "directory (or a subdirectory therein) contains valid "
+                    "image files (IMG*.jpg) matching the parsed data logs."
+                )
+                return
+
         if parsed_dir != "" and len(files) > 0:
-            run_plotter(parsed_dir=parsed_dir, plot_ac=plot_ac, plot_cam=plot_cam)
+            run_plotter(
+                parsed_dir=parsed_dir,
+                plot_ac=plot_ac,
+                plot_cam=plot_cam,
+                img_dir=img_dir,
+            )
+        else:
+            logger.error(
+                "No valid data files located! Please check your path contains"
+                "valid CSV files (SENS*, IMU*, AC*) produced by the parser."
+            )
 
     @staticmethod
     def get_parser_outdir(base_dir):
@@ -379,10 +408,22 @@ class Parser_GUI_Tk(tk.Tk):
                         # "INTADC",
                         "spiadc",
                     ]:  # LATER: add Intadc config!
-                        logger.debug(
-                            f"Sample rate on the stored parser is : {p['parser'].sample_rate}"
-                        )
-                        p["parser"].write_csv(fn1.replace("AC", "AC_"))
+                        p["parser"].write_csv(fn1)
+
+                        if os.path.isfile(fn1):
+                            ac_meta = json.dumps(
+                                {
+                                    "sample_rate": p["parser"].sample_rate,
+                                    "channels": p["parser"].channels,
+                                    "bitsPerChannel": p["parser"].bitsPerChannel,
+                                    "bytesPerChannel": p["parser"].bytesPerChannel,
+                                },
+                                indent=4,
+                                sort_keys=True,
+                            )
+                            with open(fn1.replace(".csv", "_meta.txt"), "w") as fn2:
+                                fn2.write(ac_meta)
+                                fn2.write("\n")
 
                     elif p["parser"].get_name() not in [
                         # "INTADC",
@@ -408,6 +449,21 @@ class Parser_GUI_Tk(tk.Tk):
                                     data.loc[subset].to_csv(
                                         fn1, header=None, mode="a", index=True
                                     )
+
+                        if p["parser"].get_name() == "intadc" and os.path.isfile(fn1):
+                            ac_meta = json.dumps(
+                                {
+                                    "sample_rate": p["parser"].sample_rate,
+                                    "channels": p["parser"].channels,
+                                    "bitsPerChannel": p["parser"].bitsPerChannel,
+                                    "bytesPerChannel": p["parser"].bytesPerChannel,
+                                },
+                                indent=4,
+                                sort_keys=True,
+                            )
+                            with open(fn1.replace(".csv", "_meta.txt"), "w") as fn2:
+                                fn2.write(ac_meta)
+                                fn2.write("\n")
 
     def set_adc_mode(self):
         args.use_int = self.adc_mode.get()
