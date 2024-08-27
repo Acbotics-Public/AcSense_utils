@@ -31,6 +31,16 @@ AcSense Parser GUI:
 acsense-parse
 ```
 
+The GUI provides access to the parser, which unpacks the data logs. The GUI
+also provides easy access to the plotting utilities via the "Plot" menu.
+
+The plotting utility can also be called directly via CLI with the command:
+
+```bash
+acsense-plot
+```
+
+
 ## No-install execution
 
 The AcSense Parser GUI can also be launched without installation. The easiest

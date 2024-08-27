@@ -255,10 +255,14 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
     logger.info("Done!")
 
 
-if __name__ == "__main__":
+def run_plotter_cli():
     run_plotter(
         parsed_dir=args.dir,
         plot_ac=args.plot_ac,
         plot_cam=args.plot_cam,
         img_dir=args.img_dir,
     )
+
+
+if __name__ == "__main__":
+    run_plotter_cli()
