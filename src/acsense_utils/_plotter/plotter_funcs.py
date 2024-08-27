@@ -291,10 +291,17 @@ def plot_PTSInt(xaxis, PTS_data, ax):
 def plot_CTD(xaxis, ctd_data, ax):
     x_axis = xaxis[0]
     xlabel = xaxis[1]
+    if "data3" in ctd_data.keys():
 
-    pvar = "data3"
-    tvar = "data0"
-    svar = "data2"
+        pvar = "data3"
+        tvar = "data0"
+        svar = "data2"
+    elif "decibars" in ctd_data.keys():
+        pvar = "decibars"
+        svar = "salinity"
+        tvar = "temperature"
+    else:
+        return
     ax.set_title("CTD data")
     # plot PTS data!
     ax.plot(x_axis, ctd_data[pvar].to_numpy(), "g.", label="depth")
