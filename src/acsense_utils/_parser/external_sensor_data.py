@@ -293,35 +293,37 @@ class Ctd_Data(Generic_Data):
         self.temperature = []
         self.conductivity = []
         self.salinity = []
-        self.decibars = []
+        self.pressure = []
         self.temp_internal = []
         self.density = []
         self.sound_speed = []
+        self.elapsed_time = []
 
     def _parse(self, header, raw_data):
-        data = np.frombuffer(raw_data, count=7, dtype=np.float32)
+        data = np.frombuffer(raw_data, count=8, dtype=np.float32)
         self.timestamps.append(header["Header"].timestamp)
         # self.data.append(data)
         self.temperature.append(data[0])
         self.conductivity.append(data[1])
         self.salinity.append(data[2])
-        self.decibars.append(data[3])
+        self.pressure.append(data[3])
         self.temp_internal.append(data[4])
         self.density.append(data[5])
         self.sound_speed.append(data[6])
+        self.elapsed_time.append(data[7])
 
     def as_dict(self):
-
         return {
             "timestamp": self.timestamps,
             # "data": self.data,
-            "temperature": self.temperature,
+            "temperature_c": self.temperature,
             "conductivity": self.conductivity,
             "salinity": self.salinity,
-            "decibars": self.decibars,
-            "temp_internal": self.temp_internal,
+            "pressure_decibars": self.pressure,
+            "temp_c_internal": self.temp_internal,
             "density": self.density,
             "sound_speed": self.sound_speed,
+            "elapsed_time": self.elapsed_time,
         }
 
     def get_name(self):

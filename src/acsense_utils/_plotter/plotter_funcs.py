@@ -297,9 +297,9 @@ def plot_CTD(xaxis, ctd_data, ax):
         tvar = "data0"
         svar = "data2"
     elif "decibars" in ctd_data.keys():
-        pvar = "decibars"
+        pvar = "pressure_decibars"
         svar = "salinity"
-        tvar = "temperature"
+        tvar = "temperature_c"
     else:
         return
     ax.set_title("CTD data")
