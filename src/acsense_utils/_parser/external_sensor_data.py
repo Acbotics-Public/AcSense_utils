@@ -289,17 +289,39 @@ class NAU7802_Data(Generic_Data):
 class Ctd_Data(Generic_Data):
     def __init__(self):
         self.timestamps = []
-        self.data = []
+        # self.data = []
+        self.temperature = []
+        self.conductivity = []
+        self.salinity = []
+        self.decibars = []
+        self.temp_internal = []
+        self.density = []
+        self.sound_speed = []
 
     def _parse(self, header, raw_data):
         data = np.frombuffer(raw_data, count=7, dtype=np.float32)
         self.timestamps.append(header["Header"].timestamp)
-        self.data.append(data)
+        # self.data.append(data)
+        self.temperature.append(data[0])
+        self.conductivity.append(data[1])
+        self.salinity.append(data[2])
+        self.decibars.append(data[3])
+        self.temp_internal.append(data[4])
+        self.density.append(data[5])
+        self.sound_speed.append(data[6])
 
     def as_dict(self):
+
         return {
             "timestamp": self.timestamps,
-            "data": self.data,
+            # "data": self.data,
+            "temperature": self.temperature,
+            "conductivity": self.conductivity,
+            "salinity": self.salinity,
+            "decibars": self.decibars,
+            "temp_internal": self.temp_internal,
+            "density": self.density,
+            "sound_speed": self.sound_speed,
         }
 
     def get_name(self):
