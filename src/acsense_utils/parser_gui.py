@@ -15,45 +15,7 @@ from tkinter import filedialog
 from ._parser.parser import Parser
 from .plotter import run_plotter
 
-parser = argparse.ArgumentParser(
-    prog="AcSense Parser",
-    description="Utility to load, parse and export AcSense data from device logs",
-    epilog="Acbotics Research, LLC",
-)
-
-parser.add_argument(
-    "--use_int",
-    action="store_true",
-    help="Use INT (Internal ADC) Mode on launch (can be switched on GUI)",
-)
-parser.add_argument(
-    "-v", "--verbose", action="store_true", help="Show verbose logs (detailed)"
-)
-parser.add_argument("--debug", action="store_true", help="Show verbose debugging logs")
-
-args = parser.parse_args()
-
-if args.debug and not args.verbose:
-    args.verbose = True
-
-logging.basicConfig(
-    # format="[%(asctime)s] %(name)s.%(funcName)s() : \n\t%(message)s",
-    format=(
-        "[%(asctime)s] %(levelname)s: %(filename)s:L%(lineno)d : %(message)s"
-        if args.verbose
-        else "[%(asctime)s] %(levelname)s: %(message)s"
-    ),
-    # format="[%(asctime)s] %(levelname)s: %(filename)s:L%(lineno)d : %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    # level=logging.DEBUG,
-    level=logging.INFO,
-    force=True,
-)
-
 logger = logging.getLogger(__name__)
-
-if args.debug:
-    logger.setLevel(logging.DEBUG)
 
 
 class MenuBar(tk.Menu):
@@ -215,8 +177,10 @@ class MenuBar(tk.Menu):
 
 
 class Parser_GUI_Tk(tk.Tk):
-    def __init__(self):
+    def __init__(self, parser_args):
         tk.Tk.__init__(self)
+
+        self.args = parser_args
 
         dpi = self.winfo_fpixels("1i")
         scaling = 1
@@ -231,7 +195,7 @@ class Parser_GUI_Tk(tk.Tk):
         main_frame.pack_propagate(0)
         main_frame.pack(fill="both", expand=True)
 
-        self.adc_mode = tk.BooleanVar(self, value=args.use_int)
+        self.adc_mode = tk.BooleanVar(self, value=self.args.use_int)
 
         adc_mode_opts = {
             "External ADC": False,
@@ -293,7 +257,7 @@ class Parser_GUI_Tk(tk.Tk):
             p = Parser()
             fn = os.path.basename(path_src).split("/")[-1]
             if fn.startswith("AC"):
-                self.parsed = {fn: p.parse_ac_file(path_src, args.use_int)}
+                self.parsed = {fn: p.parse_ac_file(path_src, self.args.use_int)}
             elif fn.startswith("SENS"):
                 self.parsed = {fn: p.parse_sense_file(path_src)}
             else:
@@ -322,7 +286,9 @@ class Parser_GUI_Tk(tk.Tk):
                 try:
                     if fn.startswith("AC"):
                         self.parsed[fn] = copy.deepcopy(
-                            p.parse_ac_file(os.path.join(path_src, fn), args.use_int)
+                            p.parse_ac_file(
+                                os.path.join(path_src, fn), self.args.use_int
+                            )
                         )
 
                     elif fn.startswith("SENS"):
@@ -466,14 +432,55 @@ class Parser_GUI_Tk(tk.Tk):
                                 fn2.write("\n")
 
     def set_adc_mode(self):
-        args.use_int = self.adc_mode.get()
+        self.args.use_int = self.adc_mode.get()
 
 
 Parser_GUI = Parser_GUI_Tk
 
 
 def run_parser_gui():
-    gui = Parser_GUI()
+
+    parser = argparse.ArgumentParser(
+        prog="AcSense Parser",
+        description="Utility to load, parse and export AcSense data from device logs",
+        epilog="Acbotics Research, LLC",
+    )
+
+    parser.add_argument(
+        "--use_int",
+        action="store_true",
+        help="Use INT (Internal ADC) Mode on launch (can be switched on GUI)",
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Show verbose logs (detailed)"
+    )
+    parser.add_argument(
+        "--debug", action="store_true", help="Show verbose debugging logs"
+    )
+
+    args = parser.parse_args()
+
+    if args.debug and not args.verbose:
+        args.verbose = True
+
+    logging.basicConfig(
+        # format="[%(asctime)s] %(name)s.%(funcName)s() : \n\t%(message)s",
+        format=(
+            "[%(asctime)s] %(levelname)s: %(filename)s:L%(lineno)d : %(message)s"
+            if args.verbose
+            else "[%(asctime)s] %(levelname)s: %(message)s"
+        ),
+        # format="[%(asctime)s] %(levelname)s: %(filename)s:L%(lineno)d : %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        # level=logging.DEBUG,
+        level=logging.INFO,
+        force=True,
+    )
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+
+    gui = Parser_GUI(args)
     gui.mainloop()
 
 

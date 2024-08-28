@@ -16,65 +16,9 @@ import logging
 import glob
 import json
 
-
 from ._plotter.plotter_core import *
-from ._plotter import plotter_funcs as pf
-
-parser = argparse.ArgumentParser(
-    prog="AcSense Plotter",
-    description="Plot pre-parsed data from AcSense data logs",
-    epilog="Need additional support? Contact Acbotics Research LLC (support@acbotics.com)",
-)
-parser.add_argument(
-    "--dir", type=str, default="/tmp/", help="Directory of parsed AcSense data"
-)
-parser.add_argument(
-    "--plot_ac", action="store_true", help="Enable plotting of AC* file data"
-)
-parser.add_argument(
-    "--plot_cam", action="store_true", help="Enable rendenring frames from camera data"
-)
-parser.add_argument(
-    "--img_dir",
-    type=str,
-    default=None,
-    help="Directory containing images for parsed AcSense data (required when using --plot_cam)",
-)
-parser.add_argument(
-    "-v", "--verbose", action="store_true", help="Show verbose logs (detailed)"
-)
-parser.add_argument("--debug", action="store_true", help="Show verbose debugging logs")
-
-args, unknown = parser.parse_known_args()
-
-if args.debug and not args.verbose:
-    args.verbose = True
-
-# Expand dir/path to absolute
-args.dir = os.path.abspath(os.path.expanduser(args.dir))
-
-logging.basicConfig(
-    # format="[%(asctime)s] %(name)s.%(funcName)s() : \n\t%(message)s",
-    format=(
-        "[%(asctime)s] %(levelname)s: %(filename)s:L%(lineno)d : %(message)s"
-        if args.verbose
-        else "[%(asctime)s] %(levelname)s: %(message)s"
-    ),
-    # format="[%(asctime)s] %(levelname)s: %(filename)s:L%(lineno)d : %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    # level=logging.DEBUG,
-    level=logging.INFO,
-    force=True,
-)
 
 logger = logging.getLogger(__name__)
-
-if args.debug:
-    logger.setLevel(logging.DEBUG)
-
-if not os.path.exists(args.dir):
-    logger.warning(f'Path "{args.dir}" does not exist! Please enter a valid path.')
-    exit(1)
 
 
 def get_file_root(fn):
@@ -256,6 +200,65 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
 
 
 def run_plotter_cli():
+
+    parser = argparse.ArgumentParser(
+        prog="AcSense Plotter",
+        description="Plot pre-parsed data from AcSense data logs",
+        epilog="Need additional support? Contact Acbotics Research LLC (support@acbotics.com)",
+    )
+    parser.add_argument(
+        "--dir", type=str, default="/tmp/", help="Directory of parsed AcSense data"
+    )
+    parser.add_argument(
+        "--plot_ac", action="store_true", help="Enable plotting of AC* file data"
+    )
+    parser.add_argument(
+        "--plot_cam",
+        action="store_true",
+        help="Enable rendenring frames from camera data",
+    )
+    parser.add_argument(
+        "--img_dir",
+        type=str,
+        default=None,
+        help="Directory containing images for parsed AcSense data (required when using --plot_cam)",
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Show verbose logs (detailed)"
+    )
+    parser.add_argument(
+        "--debug", action="store_true", help="Show verbose debugging logs"
+    )
+
+    args, unknown = parser.parse_known_args()
+
+    if args.debug and not args.verbose:
+        args.verbose = True
+
+    # Expand dir/path to absolute
+    args.dir = os.path.abspath(os.path.expanduser(args.dir))
+
+    logging.basicConfig(
+        # format="[%(asctime)s] %(name)s.%(funcName)s() : \n\t%(message)s",
+        format=(
+            "[%(asctime)s] %(levelname)s: %(filename)s:L%(lineno)d : %(message)s"
+            if args.verbose
+            else "[%(asctime)s] %(levelname)s: %(message)s"
+        ),
+        # format="[%(asctime)s] %(levelname)s: %(filename)s:L%(lineno)d : %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        # level=logging.DEBUG,
+        level=logging.INFO,
+        force=True,
+    )
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+
+    if not os.path.exists(args.dir):
+        logger.warning(f'Path "{args.dir}" does not exist! Please enter a valid path.')
+        exit(1)
+
     run_plotter(
         parsed_dir=args.dir,
         plot_ac=args.plot_ac,
