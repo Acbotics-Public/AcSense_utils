@@ -197,11 +197,13 @@ def plot_ADC_hydrophone_specgram(xaxis, ADC_data, ADC_meta, ax):
         xextent=(x_axis[0], x_axis[-1]),
         vmin=-65,
         vmax=0,
+        cmap="viridis",
     )
     # ax.set_ylim([0, 3.3])
     ax.set_title("Hydrophone data")
 
     ax.set_xlabel(xlabel)
+    ax.grid(alpha=0.1)
 
 
 def plot_ADC_hydrophone(xaxis, ADC_data, ax):

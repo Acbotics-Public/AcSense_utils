@@ -223,6 +223,8 @@ def plot_data_dict(
         1,
         sharex=True,
     )
+    if type(axs) != np.ndarray:
+        axs = np.array([axs])
 
     ax_ind = 0
     ax_start = 0
@@ -252,7 +254,9 @@ def plot_data_dict(
 
             fig2, ax2 = plt.subplots(2, 1, sharex=True)
             pf.plot_ADC_hydrophone(intadc_axis, intadc_data, ax2[0])
-            pf.plot_ADC_hydrophone_specgram(intadc_axis, intadc_data, ax2[1])
+            pf.plot_ADC_hydrophone_specgram(
+                intadc_axis, intadc_data, intadc_meta, ax2[1]
+            )
 
             fig2.tight_layout()
             fig2.savefig(outfile.split(".")[0] + "_acoust.png")
