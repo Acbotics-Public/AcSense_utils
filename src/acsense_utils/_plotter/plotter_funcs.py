@@ -266,11 +266,14 @@ def plot_PTS(xaxis, PTS_data, ax):
     ax.plot(x_axis, PTS_data[pvar].to_numpy(), "g.")
     ax.yaxis.label.set_color("green")
     ax.set_ylabel("Pressure (bar)")
+    ax.set_xlabel(xlabel)
+    ax.grid(color="g", alpha=0.2)
+
     ax2 = ax.twinx()
     ax2.plot(x_axis, PTS_data["temperature_c"].to_numpy(), "b.")
     ax2.set_ylabel("Temp (deg C)")
     ax2.yaxis.label.set_color("blue")
-    ax.set_xlabel(xlabel)
+    ax2.grid(color="b", alpha=0.2)
 
 
 def plot_PTSInt(xaxis, PTS_data, ax):
@@ -283,41 +286,55 @@ def plot_PTSInt(xaxis, PTS_data, ax):
     ax.plot(x_axis, PTS_data[pvar].to_numpy(), "g.")
     ax.yaxis.label.set_color("green")
     ax.set_ylabel("Pressure (bar)")
+    ax.set_xlabel(xlabel)
+    ax.grid(color="g", alpha=0.2)
+
     ax2 = ax.twinx()
     ax2.plot(x_axis, PTS_data["temperature_c"].to_numpy(), "b.")
     ax2.set_ylabel("Temp (deg C)")
     ax2.yaxis.label.set_color("blue")
-    ax.set_xlabel(xlabel)
+    ax2.grid(color="b", alpha=0.2)
 
 
 def plot_CTD(xaxis, ctd_data, ax):
     x_axis = xaxis[0]
     xlabel = xaxis[1]
     if "data3" in ctd_data.keys():
-
         pvar = "data3"
         tvar = "data0"
         svar = "data2"
-    elif "decibars" in ctd_data.keys():
+    elif "pressure_decibars" in ctd_data.keys():
         pvar = "pressure_decibars"
         svar = "salinity"
         tvar = "temperature_c"
     else:
         return
     ax.set_title("CTD data")
+
     # plot PTS data!
-    ax.plot(x_axis, ctd_data[pvar].to_numpy(), "g.", label="depth")
+    ax.plot(x_axis, ctd_data[pvar].to_numpy(), "g.")
     ax.yaxis.label.set_color("green")
     ax.set_ylabel("Pressure (dbar)")
-    ax.plot(x_axis, ctd_data[svar].to_numpy(), "r-", label="salinity")
+    ax.yaxis.label.set_color("g")
+    ax.grid(color="g", alpha=0.2)
 
-    # ax2 = ax.twinx()
-    ax.plot(x_axis, ctd_data[tvar].to_numpy(), "b-", label="temp")
-    ax.set_ylabel("Temp (deg C)")
-    ax.yaxis.label.set_color("blue")
-    ax.legend()
-    # ax.set_xlabel(xlabel)
-    ax.set_ylim([0, 40])
+    ax2 = ax.twinx()
+    ax2.plot(x_axis, ctd_data[svar].to_numpy(), "r-")
+    ax2.yaxis.label.set_color("r")
+    ax2.set_ylabel("Salinity (ppt)")
+    ax2.yaxis.label.set_color("r")
+    ax2.set_ylim([0, 40])
+    ax2.grid(color="r", alpha=0.2)
+
+    ax3 = ax.twinx()
+    ax3.plot(x_axis, ctd_data[tvar].to_numpy(), "b-")
+    ax3.set_ylabel("Temp (deg C)")
+    ax3.yaxis.label.set_color("blue")
+    ax3.grid(color="b", alpha=0.2)
+
+    ax3.spines["right"].set_position(("axes", 1.15))
+    ax3.spines["right"].set_visible(True)
+    ax3.spines["right"].set_color("k")
 
 
 def plot_ping(xaxis, PING_data, ax):
