@@ -134,15 +134,23 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
 
         # handle internal ADC data in SENS logs
         intadc_data = None
+        intadc_meta = None
         if "int_adc" in data_dict:
             intadc_data = data_dict["int_adc"]
+            intadc_meta_file = sens_root + "_intadc_meta.txt"
+            try:
+                intadc_meta = json.load(open(intadc_meta_file, "r"))
+            except Exception as e:
+                logger.warning(
+                    f"Could not locate metadata for {os.path.basename(intadc_meta_file)}"
+                )
 
         # next, get and plot the acoustic data:
         logger.info(f"plotting sens data for {os.path.basename(sens_root)}")
         # Plot!
         outfilename = sens_root + "_sensFilePlot.png"
 
-        plot_data_dict(data_dict, RTC_data, outfilename, intadc_data)
+        plot_data_dict(data_dict, RTC_data, outfilename, intadc_data, intadc_meta)
 
         ac_data = None
 
