@@ -1,11 +1,26 @@
+import logging
 import os
-from tqdm.auto import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 
-from .headers import *
-from .adc_data import *
-from .internal_sensor_data import *
-from .external_sensor_data import *
+from tqdm.auto import tqdm  # type: ignore
+from tqdm.contrib.logging import logging_redirect_tqdm  # type: ignore
+
+from .adc_data import Internal_ADC_Data, SPI_ADC_Data
+from .external_sensor_data import (
+    Ctd_Data,
+    External_PTS_Data_Bar30,
+    External_PTS_Data_Bar100,
+    GPS_Data,
+    Image_Meta_Data,
+    Magnetometer_Data,
+    NAU7802_Data,
+    Ping_Data,
+    RTC_Data,
+)
+from .generic_data import Generic_Data
+from .headers import Generic_Header, Internal_ADC_Header, SPI_ADC_Header
+from .internal_sensor_data import IMU_Data, Internal_PTS_Data
+
+logger = logging.getLogger(__name__)
 
 TICK = 1e-9  # sample interval is s
 
@@ -269,7 +284,6 @@ class Parser:
 
         else:
             for i in range(header["num_entries"]):
-
                 data = self.parse_record(
                     f, hydrophone_ADC=hydrophone_ADC, timeonly=timeonly
                 )

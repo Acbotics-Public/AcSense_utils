@@ -1,19 +1,18 @@
-import os
+import argparse
 import copy
 import glob
-import argparse
-import logging
-import pandas as pd
-import numpy as np
 import json
-from tqdm.auto import tqdm
-
+import logging
+import os
 import tkinter as tk
 from tkinter import filedialog
 
+import numpy as np
+import pandas as pd  # type: ignore
+from tqdm.auto import tqdm  # type: ignore
 
-from ._parser.parser import Parser
-from .plotter import run_plotter
+from ._parser.parser import Parser  # type: ignore
+from .plotter import run_plotter  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -220,13 +219,13 @@ class Parser_GUI_Tk(tk.Tk):
         report_frame.grid(row=1, column=0, columnspan=2, pady=20, sticky="nsew")
 
         l1 = tk.Label(report_frame, text="Channel Name")
-        l1.grid(column=0, row=0, padx=5),
+        l1.grid(column=0, row=0, padx=5)
         l2 = tk.Label(report_frame, text="Number of Messages")
-        l2.grid(column=1, row=0, padx=5),
+        l2.grid(column=1, row=0, padx=5)
         l3 = tk.Label(report_frame, text="--")
-        l3.grid(column=0, row=1, padx=5),
+        l3.grid(column=0, row=1, padx=5)
         l4 = tk.Label(report_frame, text="--")
-        l4.grid(column=1, row=1, padx=5),
+        l4.grid(column=1, row=1, padx=5)
 
         self.report_info = [l1, l2, l3, l4]
 
@@ -280,7 +279,6 @@ class Parser_GUI_Tk(tk.Tk):
                 return
 
             for fn in files_to_process:
-
                 logger.info(f"Loading {fn}")
                 p = Parser()
                 try:
@@ -323,7 +321,7 @@ class Parser_GUI_Tk(tk.Tk):
                     d = p["parser"].as_dict()
                     name = p["parser"].get_name()
                     # names.append(name)
-                    if not name in data_multi.keys():
+                    if name not in data_multi.keys():
                         data_multi[name] = [d]
                     else:
                         data_multi[name].append(d)
@@ -340,7 +338,6 @@ class Parser_GUI_Tk(tk.Tk):
         logger.info(f"Data collected includes: {names}")
 
         if len(names) > 0:
-
             ind = 1
             for d, name in zip(data, names):
                 l1 = tk.Label(self.report_frame, text=name)
@@ -360,9 +357,7 @@ class Parser_GUI_Tk(tk.Tk):
             self.report_info.extend([l1, l2])
 
     def save_csv_callback(self, output_dir):
-
         if self.parsed != {} and output_dir != "":
-
             for fn, parser_set in self.parsed.items():
                 for p in parser_set:
                     fn1 = os.path.join(
@@ -439,7 +434,6 @@ Parser_GUI = Parser_GUI_Tk
 
 
 def run_parser_gui():
-
     parser = argparse.ArgumentParser(
         prog="AcSense Parser",
         description="Utility to load, parse and export AcSense data from device logs",

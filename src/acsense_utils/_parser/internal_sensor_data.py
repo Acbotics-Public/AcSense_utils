@@ -1,6 +1,7 @@
 import struct
-import numpy as np
 from collections import namedtuple
+
+import numpy as np
 
 from .generic_data import Generic_Data
 
@@ -20,7 +21,7 @@ class IMU_Data(Generic_Data):
     def _parse(self, header, raw_data):
         pass
 
-        res = {}
+        # res = {}
         Imu = namedtuple(
             "Imu",
             "PitchNed_DegreesX100 RollNed_DegreesX100 Accel_X Accel_Y Accel_Z Gyro_X Gyro_Y Gyro_Z",

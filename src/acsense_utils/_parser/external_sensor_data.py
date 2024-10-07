@@ -1,10 +1,11 @@
-import struct
-import datetime
 import copy
+import datetime
 import logging
-import numpy as np
-from pynmeagps import NMEAReader
+import struct
 from collections import namedtuple
+
+import numpy as np
+from pynmeagps import NMEAReader  # type: ignore
 
 from .generic_data import Generic_Data
 
@@ -54,7 +55,7 @@ class GPS_Data(Generic_Data):
                     data["timestr"] + "Z", "%Y-%m-%d_T%H:%M:%S.%f%z"
                 ).timestamp()
 
-            except:
+            except Exception:
                 data["UnixTime"] = datetime.datetime.strptime(
                     data["timestr"] + "Z", "%Y-%m-%d_T%H:%M:%S%z"
                 ).timestamp()
@@ -85,7 +86,6 @@ class GPS_Data(Generic_Data):
 
 
 class Ping_Data(Generic_Data):
-
     def __init__(self):
         self.timestamps = []
         self.distance = []
@@ -99,7 +99,6 @@ class Ping_Data(Generic_Data):
         self.profile_values = []
 
     def _parse(self, header, raw_data):
-
         Ping = namedtuple(
             "Ping",
             "distance confidence transmit_duration ping_number scan_start scan_length gain_setting profile_data_length profile_values",
@@ -241,7 +240,7 @@ class Image_Meta_Data(Generic_Data):
     def _parse(self, header, raw_data):
         file_number = np.frombuffer(raw_data, count=1, dtype=np.uint32)
         resolution = np.frombuffer(raw_data, count=1, offset=4, dtype=np.uint8)
-        reserved = np.frombuffer(raw_data, count=3, offset=5, dtype=np.uint8)
+        # reserved = np.frombuffer(raw_data, count=3, offset=5, dtype=np.uint8)
         self.file_numbers.append(file_number[0])
         self.resolutions.append(resolution[0])
         self.timestamps.append(header["Header"].timestamp)
