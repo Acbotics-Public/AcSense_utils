@@ -1,11 +1,26 @@
+import logging
 import os
-from tqdm.auto import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 
-from .headers import *
-from .adc_data import *
-from .internal_sensor_data import *
-from .external_sensor_data import *
+from tqdm.auto import tqdm  # type: ignore
+from tqdm.contrib.logging import logging_redirect_tqdm  # type: ignore
+
+from .adc_data import Internal_ADC_Data, SPI_ADC_Data
+from .external_sensor_data import (
+    Ctd_Data,
+    External_PTS_Data_Bar30,
+    External_PTS_Data_Bar100,
+    GPS_Data,
+    Image_Meta_Data,
+    Magnetometer_Data,
+    NAU7802_Data,
+    Ping_Data,
+    RTC_Data,
+)
+from .generic_data import Generic_Data
+from .headers import Generic_Header, Internal_ADC_Header, SPI_ADC_Header
+from .internal_sensor_data import IMU_Data, Internal_PTS_Data
+
+logger = logging.getLogger(__name__)
 
 TICK = 1e-9  # sample interval is s
 
@@ -146,7 +161,7 @@ class Parser:
         self.sens_dict = {}
         pass
 
-    def parse_sense_file(self, fn):
+    def parse_sense_file(self, fn, pbar_position=None):
         self.sens_dict = {}
 
         file_size = os.stat(fn).st_size
@@ -156,7 +171,11 @@ class Parser:
             )
             return self.parsers
 
-        prog_bar = tqdm(desc=f"Parsing {os.path.basename(fn):40s}", total=file_size)
+        prog_bar = tqdm(
+            desc=f"Parsing {os.path.basename(fn):40s}",
+            total=file_size,
+            position=pbar_position,
+        )
         with logging_redirect_tqdm():
             with open(fn, "rb") as f:
                 while True:
@@ -170,7 +189,9 @@ class Parser:
         prog_bar.close()
         return self.parsers
 
-    def parse_ac_file(self, fn, use_int):
+    def parse_ac_file(
+        self, fn, use_int, export=False, output_dir=None, pbar_position=None
+    ):
         file_size = os.stat(fn).st_size
         if file_size == 0:
             logger.warning(
@@ -178,13 +199,24 @@ class Parser:
             )
             return self.parsers
 
-        prog_bar = tqdm(desc=f"Parsing {os.path.basename(fn):40s}", total=file_size)
+        prog_bar = tqdm(
+            desc=f"Exporting to CSV from {os.path.basename(fn):40s}"
+            if export
+            else f"Parsing {os.path.basename(fn):40s}",
+            total=file_size,
+            position=pbar_position,
+        )
         with logging_redirect_tqdm():
             with open(fn, "rb") as f:
                 while True:
                     start_tell = f.tell()
                     self.read_block(
-                        "INT" if use_int else "EXT", f, ac_file=True
+                        "INT" if use_int else "EXT",
+                        f,
+                        ac_file=True,
+                        export=export,
+                        output_dir=output_dir,
+                        input_filename=fn,
                     )  # MAKE CONFIGURABLE AS INT OR EXT!!!!
                     prog_bar.update(f.tell() - start_tell)
                     if (
@@ -209,7 +241,15 @@ class Parser:
     def read_index(self, f):  # Used in SENS files
         return int.from_bytes(f.read(2), "little")
 
-    def parse_record_ac(self, f, hydrophone_ADC="INT", timeonly=False):
+    def parse_record_ac(
+        self,
+        f,
+        hydrophone_ADC="INT",
+        timeonly=False,
+        export=False,
+        output_dir=None,
+        input_filename=None,
+    ):
         if hydrophone_ADC == "INT":
             msg_id = 0x0F
             msg_type = "InternalADC"
@@ -222,8 +262,14 @@ class Parser:
             data = f.read(h["payload_bytes"])
             for d in self.parsers:
                 if d["msg_id"] == msg_id and h["Type"] == msg_type:
-                    d["parser"]._parse(h, data)
-            return {"record_size": h["payload_bytes"] + header.header_size_bytes}
+                    d["parser"]._parse(
+                        h,
+                        data,
+                        export=export,
+                        output_dir=output_dir,
+                        input_filename=input_filename,
+                    )
+            # return {"record_size": h["payload_bytes"] + header.header_size_bytes}
 
     def parse_record(self, f, hydrophone_ADC="EXT", timeonly=False):
         # hydrophone_ADC = "EXT" if using 8ch or 16ch, "INT" if a mini system
@@ -255,7 +301,16 @@ class Parser:
         #     logger.info("No parse function implemented for " + repr(msg_info))
         return {"next_index": next_index}
 
-    def read_block(self, hydrophone_ADC, f, timeonly=False, ac_file=False):
+    def read_block(
+        self,
+        hydrophone_ADC,
+        f,
+        timeonly=False,
+        ac_file=False,
+        export=False,
+        output_dir=None,
+        input_filename=None,
+    ):
         block_start = f.tell()
         if not ac_file:
             header = self.read_block_header(f)
@@ -265,11 +320,17 @@ class Parser:
         # logger.info('header: ' + repr(header))
 
         if ac_file:
-            self.parse_record_ac(f, hydrophone_ADC=hydrophone_ADC, timeonly=timeonly)
+            self.parse_record_ac(
+                f,
+                hydrophone_ADC=hydrophone_ADC,
+                timeonly=timeonly,
+                export=export,
+                output_dir=output_dir,
+                input_filename=input_filename,
+            )
 
         else:
             for i in range(header["num_entries"]):
-
                 data = self.parse_record(
                     f, hydrophone_ADC=hydrophone_ADC, timeonly=timeonly
                 )

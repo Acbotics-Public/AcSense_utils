@@ -9,14 +9,23 @@ program, or via CLI using the acsense-plot entrypoint provided by
 the package installation.
 """
 
-import os
-import pandas as pd
 import argparse
-import logging
 import glob
 import json
+import logging
+import os
 
-from ._plotter.plotter_core import *
+import matplotlib.pyplot as plt
+import pandas as pd  # type: ignore
+
+from ._plotter.plotter_core import (  # type: ignore
+    get_GPS_RTC_data,
+    get_xaxis,
+    plot_cam_frame_points,
+    plot_data_dict,
+    plot_multichannel_acoustics,
+    process_IMU,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +149,7 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
             intadc_meta_file = sens_root + "_intadc_meta.txt"
             try:
                 intadc_meta = json.load(open(intadc_meta_file, "r"))
-            except Exception as e:
+            except Exception:
                 logger.warning(
                     f"Could not locate metadata for {os.path.basename(intadc_meta_file)}"
                 )
@@ -155,7 +164,6 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
         ac_data = None
 
         if plot_ac:
-
             ac_root = get_file_root(sens_root.replace("SENS", "AC"))
             logger.info(f"Processing AC file root : {os.path.basename(ac_root)}")
 
@@ -172,7 +180,7 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
                     ac_meta = json.load(
                         open(acoustic_file.replace(".csv", "_meta.txt"), "r")
                     )
-                except Exception as e:
+                except Exception:
                     logger.warning(
                         f"Could not locate metadata for {os.path.basename(acoustic_file)}"
                     )
@@ -208,7 +216,6 @@ def run_plotter(parsed_dir=None, plot_ac=False, plot_cam=False, img_dir=None):
 
 
 def run_plotter_cli():
-
     parser = argparse.ArgumentParser(
         prog="AcSense Plotter",
         description="Plot pre-parsed data from AcSense data logs",

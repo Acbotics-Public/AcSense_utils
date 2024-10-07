@@ -5,10 +5,10 @@ It is intended as an implementation reference for higher-level
 plot-generation methods in the `plotter_core.py` file.
 """
 
-import numpy as np
 import logging
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import use as mpl_use
 from matplotlib.ticker import FormatStrFormatter
 
@@ -245,7 +245,7 @@ def plot_ADC_geophone(xaxis, ADC_data, ax):
 
 def plot_raw_mag(xaxis, mag_raw, ax):
     x_axis = xaxis[0]
-    xlabel = xaxis[1]
+    # xlabel = xaxis[1]
     ax.plot(x_axis, mag_raw["mag_x"], "b.", label="raw mag x")
     ax.plot(x_axis, mag_raw["mag_y"], "r.", label="raw mag y")
     ax.plot(x_axis, mag_raw["mag_z"], "g.", label="raw mag z")
@@ -298,7 +298,7 @@ def plot_PTSInt(xaxis, PTS_data, ax):
 
 def plot_CTD(xaxis, ctd_data, ax):
     x_axis = xaxis[0]
-    xlabel = xaxis[1]
+    # xlabel = xaxis[1]
     if "data3" in ctd_data.keys():
         pvar = "data3"
         tvar = "data0"

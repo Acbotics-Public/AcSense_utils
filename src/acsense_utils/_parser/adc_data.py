@@ -1,8 +1,10 @@
-import numpy as np
-import pandas as pd
+import json
 import logging
 import os
-from tqdm.auto import tqdm
+
+import numpy as np
+import pandas as pd  # type: ignore
+from tqdm.auto import tqdm  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +21,18 @@ class SPI_ADC_Data:
         self.bytesPerChannel = None
         # self.scale = None
 
-    def _parse(self, header, raw_data, signed=True):
+        self.wrote_first = False
+        self.outfile = None
+
+    def _parse(
+        self,
+        header,
+        raw_data,
+        signed=True,
+        export=False,
+        output_dir=None,
+        input_filename=None,
+    ):
         num_channels = header["Header"].channels
         bytes_per_channel = header["Header"].bytesPerChannel
         num_records = header["Header"].dataRecordsPerBuffer
@@ -64,6 +77,29 @@ class SPI_ADC_Data:
         self.bytesPerChannel = header["Header"].bytesPerChannel
         # self.scale = header["Header"].scale
 
+        if export:
+            if not self.outfile:
+                self.outfile = os.path.join(
+                    output_dir,
+                    os.path.basename(input_filename).replace(".dat", "")
+                    + "_"
+                    + self.get_name()
+                    + ".csv",
+                ).replace(" ", "_")
+
+            if not self.wrote_first:
+                # logger.info(f"Writing metadata for {self.outfile}")
+                self.write_metadata()
+                # logger.info(f"Writing to {self.outfile}")
+                # logger.info(f"Header is :\n{header['Header']}")
+
+            self.write_csv(self.outfile, progress=False)
+
+            # For export mode, do not keep data buffer
+            self.timestamps = []
+            self.data = []
+            self.sample_count = []
+
     def as_dict(self):
         dic = {}
         dic["timestamp"] = []
@@ -84,22 +120,23 @@ class SPI_ADC_Data:
                         dic["channel_" + repr(j)].append(self.data[ind][j, i])
         return dic
 
-    def write_csv(self, outfile):
-
+    def write_csv(self, outfile, progress=True, pbar_position=None):
         data_len = len(self.data)
         if data_len > 0:
-
             mult = 1.0e8 * (1.0 / self.sample_rate) if self.sample_rate else 1
 
             cols = []
             for i in range(self.data[0].shape[0]):
                 cols.append("channel_" + repr(i))
 
-            prog_bar = tqdm(
-                desc=f"Writing {os.path.basename(outfile):40s}", total=data_len
-            )
+            if progress:
+                prog_bar = tqdm(
+                    desc=f"Writing {os.path.basename(outfile):40s}",
+                    total=data_len,
+                    position=pbar_position,
+                )
             ind = 0
-            while ind < data_len:
+            for ind in range(data_len):
                 tt = self.timestamps[ind]
 
                 cur_count = self.sample_count[ind]
@@ -115,18 +152,37 @@ class SPI_ADC_Data:
                 cur_pd_array["sample_count"] = cur_count + np.linspace(
                     0, cur_len, cur_len, endpoint=False
                 ).astype("uint64")
-                if ind == 0:
+
+                if not self.wrote_first:
                     # create csv and write:
                     cur_pd_array.to_csv(outfile)
+                    self.wrote_first = True
                 else:
                     cur_pd_array.to_csv(outfile, mode="a", header=False)
 
-                prog_bar.update(1)
-                ind += 1
-            prog_bar.refresh()
-            prog_bar.close()
+                if progress:
+                    prog_bar.update(1)
+                # ind += 1
+            if progress:
+                prog_bar.refresh()
+                prog_bar.close()
 
         return
+
+    def write_metadata(self):
+        ac_meta = json.dumps(
+            {
+                "sample_rate": self.sample_rate,
+                "channels": self.channels,
+                "bitsPerChannel": self.bitsPerChannel,
+                "bytesPerChannel": self.bytesPerChannel,
+            },
+            indent=4,
+            sort_keys=True,
+        )
+        with open(self.outfile.replace(".csv", "_meta.txt"), "w") as fn2:
+            fn2.write(ac_meta)
+            fn2.write("\n")
 
     def get_name(self):
         return "spiadc"
@@ -140,6 +196,7 @@ class Internal_ADC_Data:
     def __init__(self):
         self.timestamps = []
         self.data = []
+        self.sample_count = []
 
         self.sample_rate = None
         self.channels = None
@@ -147,7 +204,18 @@ class Internal_ADC_Data:
         self.bytesPerChannel = None
         # self.scale = None
 
-    def _parse(self, header, raw_data, signed=True):
+        self.wrote_first = False
+        self.outfile = None
+
+    def _parse(
+        self,
+        header,
+        raw_data,
+        signed=True,
+        export=False,
+        output_dir=None,
+        input_filename=None,
+    ):
         num_channels = header["Header"].channels
         bytes_per_channel = header["Header"].bytesPerChannel
         num_records = header["Header"].dataRecordsPerBuffer
@@ -183,6 +251,7 @@ class Internal_ADC_Data:
 
         self.data.append(data)
         self.timestamps.append(header["Header"].timestamp)
+        self.sample_count.append(header["Header"].sampleCount)
 
         self.sample_rate = header["Header"].sampleRate
         self.channels = header["Header"].channels
@@ -190,9 +259,33 @@ class Internal_ADC_Data:
         self.bytesPerChannel = header["Header"].bytesPerChannel
         # self.scale = header["Header"].scale
 
+        if export:
+            if not self.outfile:
+                self.outfile = os.path.join(
+                    output_dir,
+                    os.path.basename(input_filename).replace(".dat", "")
+                    + "_"
+                    + self.get_name()
+                    + ".csv",
+                ).replace(" ", "_")
+
+            if not self.wrote_first:
+                # logger.info(f"Writing metadata for {self.outfile}")
+                self.write_metadata()
+                # logger.info(f"Writing to {self.outfile}")
+                # logger.info(f"Header is :\n{header['Header']}")
+
+            self.write_csv(self.outfile, progress=False)
+
+            # For export mode, do not keep data buffer
+            self.timestamps = []
+            self.data = []
+            self.sample_count = []
+
     def as_dict(self):
         dic = {}
         dic["timestamp"] = []
+        dic["sample_count"] = []
 
         if len(self.data) > 0:
             for i in range(self.data[0].shape[0]):
@@ -203,10 +296,75 @@ class Internal_ADC_Data:
                     dic["timestamp"].append(
                         self.timestamps[ind] + i * 1.0e8 * (1.0 / self.sample_rate)
                     )
+                    dic["sample_count"].append(self.sample_count[ind] + i)
 
                     for j in range(self.data[ind].shape[0]):
                         dic["channel_" + repr(j)].append(self.data[ind][j, i])
         return dic
+
+    def write_csv(self, outfile, progress=True, pbar_position=None):
+        data_len = len(self.data)
+        if data_len > 0:
+            mult = 1.0e8 * (1.0 / self.sample_rate) if self.sample_rate else 1
+
+            cols = []
+            for i in range(self.data[0].shape[0]):
+                cols.append("channel_" + repr(i))
+
+            if progress:
+                prog_bar = tqdm(
+                    desc=f"Writing {os.path.basename(outfile):40s}",
+                    total=data_len,
+                    position=pbar_position,
+                )
+            ind = 0
+            for ind in range(data_len):
+                tt = self.timestamps[ind]
+
+                cur_count = self.sample_count[ind]
+                cur_len = self.data[ind].shape[1]
+                cur_t_list = tt + np.linspace(
+                    0, cur_len * mult, cur_len, endpoint=False
+                )
+                logger.debug(f"SPI_ADC cur_t_list : {cur_t_list}")
+                cur_pd_array = pd.DataFrame(
+                    data=np.transpose(self.data[ind]), index=cur_t_list, columns=cols
+                )
+                cur_pd_array.index.name = "timestamp"
+                cur_pd_array["sample_count"] = cur_count + np.linspace(
+                    0, cur_len, cur_len, endpoint=False
+                ).astype("uint64")
+
+                if not self.wrote_first:
+                    # create csv and write:
+                    cur_pd_array.to_csv(outfile)
+                    self.wrote_first = True
+                else:
+                    cur_pd_array.to_csv(outfile, mode="a", header=False)
+
+                if progress:
+                    prog_bar.update(1)
+                # ind += 1
+            if progress:
+                prog_bar.refresh()
+                prog_bar.close()
+
+        return
+
+    def write_metadata(self):
+        ac_meta = json.dumps(
+            {
+                "sample_rate": self.sample_rate,
+                "channels": self.channels,
+                "bitsPerChannel": self.bitsPerChannel,
+                "bytesPerChannel": self.bytesPerChannel,
+            },
+            indent=4,
+            sort_keys=True,
+        )
+        with open(self.outfile.replace(".csv", "_meta.txt"), "w") as fn2:
+            fn2.write(ac_meta)
+            fn2.write("\n")
 
     def get_name(self):
         return "intadc"

@@ -1,7 +1,7 @@
-import struct
-import os
-from collections import namedtuple
 import logging
+import os
+import struct
+from collections import namedtuple
 
 logger = logging.getLogger(__name__)
 

@@ -5,16 +5,16 @@ It is intended as an implementation reference for the data structures
 prepared by the top-level `plotter.py` file.
 """
 
-import os
-import glob
-import scipy
-import numpy as np
-import logging
 import datetime
+import glob
+import logging
+import os
 
-import matplotlib.pyplot as plt
-from matplotlib import use as mpl_use
 import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy  # type: ignore
+from matplotlib import use as mpl_use
 
 from . import plotter_funcs as pf
 
@@ -30,7 +30,6 @@ acc_correction = 9.81 / 2059  # acceleration correction for m/s^2
 def get_xaxis(sensor_data, RTC_data=None):
     offset = 0
     if RTC_data is not None:
-
         # use RTC data to look up timestamps:
         # logger.info(RTC_data[0])
         try:
@@ -39,7 +38,7 @@ def get_xaxis(sensor_data, RTC_data=None):
                 RTC_data.iloc[0]["unix_time"], datetime.timezone.utc
             ).strftime("%Y-%m-%d %H:%M:%S")
             offset = RTC_data.iloc[0]["timestamp"]
-        except:
+        except Exception:
             rtc_start = "start"
             offset = 0
 
@@ -49,16 +48,17 @@ def get_xaxis(sensor_data, RTC_data=None):
         logger.info("RTC data is None?")
         xlabeln = "Time [s]"
     # logger.info(sensor_data)
-    if type(sensor_data["timestamp"]) == type([]) or type(
-        sensor_data["timestamp"]
-    ) == type(np.array([])):
+    if (
+        type(sensor_data["timestamp"]) is list
+        or type(sensor_data["timestamp"]) is np.ndarray
+    ):
         tstamp_array = np.array(sensor_data["timestamp"]) - offset
     # elif isinstance(sensor_data["timestamp"],int) or isinstance(sensor_data["timestamp"],float):
 
     else:
         try:
             tstamp_array = sensor_data["timestamp"].to_numpy() - offset
-        except:
+        except Exception:
             tstamp_array = np.array([sensor_data["timestamp"]]) - offset
     tstamps = (
         tstamp_array * TICK
@@ -139,7 +139,6 @@ def rotate_IMU_data(rot_info, cur_data, Pitch, Roll):
 
 
 def get_GPS_RTC_data(GPS_data):
-
     GPS_select = GPS_data[["RMC" in str(x) for x in GPS_data["raw_nmea"].to_numpy()]]
 
     GPS_select2 = GPS_select[[",A," in x for x in GPS_select["raw_nmea"].to_numpy()]]
@@ -191,7 +190,6 @@ def plot_data_dict(
     fig=False,
     tick=None,
 ):
-
     # Get active features to determine number of plots
     active_feats = get_active_features(data_dict)
     plot_rows = len(active_feats)
@@ -223,7 +221,7 @@ def plot_data_dict(
         1,
         sharex=True,
     )
-    if type(axs) != np.ndarray:
+    if type(axs) is not np.ndarray:
         axs = np.array([axs])
 
     ax_ind = 0
@@ -363,11 +361,10 @@ def plot_cam_frame_points(
 ):
     active_feats = get_active_features(data_dict)
     if "cam" in active_feats:
-
         if intadc_data is not None:
             cam_select = data_dict["cam"][
                 (data_dict["cam"]["timestamp"] > intadc_data["timestamp"].iloc[0])
-                & ((data_dict["cam"]["timestamp"] < intadc_data["timestamp"].iloc[-1]))
+                & (data_dict["cam"]["timestamp"] < intadc_data["timestamp"].iloc[-1])
             ]
         else:
             cam_select = data_dict["cam"]
