@@ -361,7 +361,7 @@ class Parser_GUI_Tk(tk.Tk):
         )
 
         with Pool(nproc) as p:
-            for result in p.map(
+            for result in p.imap_unordered(
                 self._parse_export_callback, _files_to_process, chunksize=1
             ):
                 prog_bar.update()
