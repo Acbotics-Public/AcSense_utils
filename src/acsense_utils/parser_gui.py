@@ -5,6 +5,8 @@ import json
 import logging
 import os
 import tkinter as tk
+from multiprocessing import Pool, cpu_count, current_process
+from shutil import get_terminal_size
 from tkinter import filedialog
 
 import numpy as np
@@ -86,31 +88,13 @@ class MenuBar(tk.Menu):
         output_dir = self.get_parser_outdir(output_dir)
         logger.info(f"Output path will be : {output_dir}")
 
-        files_to_process = sorted(
-            glob.glob(
-                os.path.join(self.parent.file_path, "**/SENS*.dat"), recursive=True
-            )
+        self.parent.parse_export_callback(
+            path_src=self.parent.file_path, output_dir=output_dir
         )
-        files_to_process += sorted(
-            glob.glob(os.path.join(self.parent.file_path, "**/AC*.dat"), recursive=True)
-        )
-
-        basenames = set([os.path.basename(x) for x in files_to_process])
-        if len(basenames) != len(files_to_process):
-            logger.warning(
-                "You have selected data from multiple missions! "
-                "Output files for matching source file names may get overwritten."
-            )
-
-        for fn in files_to_process:
-            self.parent.parse_callback(fn, redraw=False)
-            self.parent.save_csv_callback(output_dir)
-            print()
-        logger.info("Done!")
 
     def parse_path(self):
         logger.info(f"Processing path : {self.parent.file_path}")
-        self.parent.parse_callback()
+        self.parent.parse_callback(self.parent.file_path)
 
     def export_to_csv(self):
         output_dir = filedialog.askdirectory(title="Choose Output Directory")
@@ -120,7 +104,7 @@ class MenuBar(tk.Menu):
         logger.info(f"Output path will be : {output_dir}")
 
         if output_dir != "":
-            self.parent.save_csv_callback(output_dir)
+            self.parent.save_csv_callback(self.parent.parsed, output_dir)
 
     def plot_parsed(self, plot_ac=False, plot_cam=False):
         parsed_dir = filedialog.askdirectory(title="Choose Parsed Data Directory")
@@ -229,7 +213,6 @@ class Parser_GUI_Tk(tk.Tk):
 
         self.report_info = [l1, l2, l3, l4]
 
-        self.is_directory = False
         self.file_path = None
         self.active_sense_dict = None
 
@@ -245,25 +228,45 @@ class Parser_GUI_Tk(tk.Tk):
     def quit_application(self):
         self.destroy()
 
-    def parse_callback(self, path_src=None, redraw=True):
-        path_src = path_src or self.file_path
+    @staticmethod
+    def _parse_callback(
+        path_src=None,
+        use_int=False,
+        export=False,
+        output_dir=None,
+        pbar_position=None,
+    ) -> dict | None:
+        # path_src = path_src or self.file_path
+        parsed = {}
 
         if path_src is None:
-            return
+            return None
 
         if os.path.isfile(path_src):
-            self.is_directory = False
             p = Parser()
             fn = os.path.basename(path_src).split("/")[-1]
             if fn.startswith("AC"):
-                self.parsed = {fn: p.parse_ac_file(path_src, self.args.use_int)}
+                parsed = {
+                    fn: p.parse_ac_file(
+                        path_src,
+                        use_int,
+                        export=export,
+                        output_dir=output_dir,
+                        pbar_position=pbar_position,
+                    )
+                }
             elif fn.startswith("SENS"):
-                self.parsed = {fn: p.parse_sense_file(path_src)}
+                parsed = {fn: p.parse_sense_file(path_src, pbar_position=pbar_position)}
+                if export:
+                    Parser_GUI_Tk.save_csv_callback(
+                        parsed, output_dir=output_dir, pbar_position=pbar_position
+                    )
             else:
-                self.parsed = {}
+                parsed = {}
+            if export:
+                return None
         elif os.path.isdir(path_src):
-            self.is_directory = True
-            self.parsed = {}
+            parsed = {}
 
             files_to_process = sorted(
                 glob.glob(os.path.join(path_src, "**/SENS*.dat"), recursive=True)
@@ -276,21 +279,19 @@ class Parser_GUI_Tk(tk.Tk):
                 logger.warning(
                     "Could not locate SENS*.dat or AC*.dat files to process!"
                 )
-                return
+                return None
 
             for fn in files_to_process:
                 logger.info(f"Loading {fn}")
                 p = Parser()
                 try:
                     if fn.startswith("AC"):
-                        self.parsed[fn] = copy.deepcopy(
-                            p.parse_ac_file(
-                                os.path.join(path_src, fn), self.args.use_int
-                            )
+                        parsed[fn] = copy.deepcopy(
+                            p.parse_ac_file(os.path.join(path_src, fn), use_int)
                         )
 
                     elif fn.startswith("SENS"):
-                        self.parsed[fn] = copy.deepcopy(
+                        parsed[fn] = copy.deepcopy(
                             p.parse_sense_file(os.path.join(path_src, fn))
                         )
                     elif fn.endswith("JPG") or fn.endswith(".jpg"):
@@ -301,8 +302,74 @@ class Parser_GUI_Tk(tk.Tk):
                 except Exception as e:
                     logger.info(f"Exception encountered while parsing file {fn} :\n{e}")
 
+        return parsed
+
+    def parse_callback(self, path_src=None, redraw=True):
+        # path_src = path_src or self.file_path
+        self.parsed = self._parse_callback(path_src=path_src, use_int=self.args.use_int)
         if redraw:
             self.redraw_channels()
+
+    @staticmethod
+    def _parse_export_callback(args):
+        idx, use_int, fn, output_dir = args
+        Parser_GUI_Tk._parse_callback(
+            path_src=fn,
+            use_int=use_int,
+            export=True,
+            output_dir=output_dir,
+            pbar_position=current_process()._identity[0] - 1,
+        )
+
+    def parse_export_callback(self, path_src=None, output_dir=None):
+        # path_src = path_src or self.file_path
+
+        files_to_process = sorted(
+            glob.glob(os.path.join(self.file_path, "**/SENS*.dat"), recursive=True)
+        )
+        files_to_process += sorted(
+            glob.glob(os.path.join(self.file_path, "**/AC*.dat"), recursive=True)
+        )
+
+        basenames = set([os.path.basename(x) for x in files_to_process])
+        if len(basenames) != len(files_to_process):
+            logger.warning(
+                "You have selected data from multiple missions! "
+                "Output files for matching source file names may get overwritten."
+            )
+
+        _files_to_process = []
+        for ii, fn in enumerate(files_to_process):
+            _files_to_process.append((ii, self.args.use_int, fn, output_dir))
+
+        _n_sens = sum([x.startswith("SENS") for x in basenames])
+        _n_aco = sum([x.startswith("AC") for x in basenames])
+        logger.info(f"Exporting files to CSV : {_n_sens} SENS & {_n_aco} AC")
+
+        nproc = max([1, cpu_count() - 4])
+        # nproc = min([max([1, cpu_count() - 4]), 8])
+
+        # We must initialize progress bars here to prevent conflicting allocation
+        # from forked processes; otherwise mp.Pool will allocate excess space
+        # and some progress bars will *appear* orphaned due to printing in higher
+        # than indended index, then relocating to desired position
+        # >> prog_bar_alloc = tqdm(position=nproc)
+
+        # Since we are alllocating here anyway, let's track overall progress
+        prog_bar = tqdm(
+            desc="OVERALL PROGRESS", position=nproc, total=len(_files_to_process)
+        )
+
+        with Pool(nproc) as p:
+            for result in p.map(
+                self._parse_export_callback, _files_to_process, chunksize=1
+            ):
+                prog_bar.update()
+                prog_bar.refresh()
+
+        prog_bar.close()
+        print((" " * get_terminal_size()[0] + "\n") * nproc)
+        logger.info("Done!")
 
     def redraw_channels(self):
         logger.info("redrawing")
@@ -356,9 +423,10 @@ class Parser_GUI_Tk(tk.Tk):
             l2.grid(column=1, row=1, padx=5)
             self.report_info.extend([l1, l2])
 
-    def save_csv_callback(self, output_dir):
-        if self.parsed != {} and output_dir != "":
-            for fn, parser_set in self.parsed.items():
+    @staticmethod
+    def save_csv_callback(parsed, output_dir, pbar_position=None):
+        if parsed != {} and output_dir != "":
+            for fn, parser_set in parsed.items():
                 for p in parser_set:
                     fn1 = os.path.join(
                         output_dir,
@@ -369,7 +437,7 @@ class Parser_GUI_Tk(tk.Tk):
                         # "INTADC",
                         "spiadc",
                     ]:  # LATER: add Intadc config!
-                        p["parser"].write_csv(fn1)
+                        p["parser"].write_csv(fn1, pbar_position=pbar_position)
 
                         if os.path.isfile(fn1):
                             ac_meta = json.dumps(
@@ -401,7 +469,9 @@ class Parser_GUI_Tk(tk.Tk):
 
                             for chunck, subset in enumerate(
                                 tqdm(
-                                    chunks, desc=f"Writing {os.path.basename(fn1):40s}"
+                                    chunks,
+                                    desc=f"Writing {os.path.basename(fn1):40s}",
+                                    position=pbar_position,
                                 )
                             ):
                                 if chunck == 0:  # first row
