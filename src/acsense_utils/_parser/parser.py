@@ -200,7 +200,7 @@ class Parser:
             return self.parsers
 
         prog_bar = tqdm(
-            desc=f"Exporting to CSV from {os.path.basename(fn):40s}"
+            desc=f"Exporting to CSV from {os.path.basename(fn):26s}"
             if export
             else f"Parsing {os.path.basename(fn):40s}",
             total=file_size,
