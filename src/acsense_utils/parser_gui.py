@@ -467,14 +467,14 @@ class Parser_GUI_Tk(tk.Tk):
                                 data.index, 100
                             )  # split into 100 chunks
 
-                            for chunck, subset in enumerate(
+                            for chunk, subset in enumerate(
                                 tqdm(
                                     chunks,
                                     desc=f"Writing {os.path.basename(fn1):40s}",
                                     position=pbar_position,
                                 )
                             ):
-                                if chunck == 0:  # first row
+                                if chunk == 0:  # first row
                                     data.loc[subset].to_csv(fn1, mode="w", index=True)
                                 else:
                                     data.loc[subset].to_csv(

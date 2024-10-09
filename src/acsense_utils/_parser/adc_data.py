@@ -145,17 +145,19 @@ class SPI_ADC_Data:
                     0, cur_len * mult, cur_len, endpoint=False
                 )
                 logger.debug(f"SPI_ADC cur_t_list : {cur_t_list}")
-                cur_pd_array = pd.DataFrame(
-                    data=np.transpose(self.data[ind]), index=cur_t_list, columns=cols
-                )
-                cur_pd_array.index.name = "timestamp"
-                cur_pd_array["sample_count"] = cur_count + np.linspace(
+
+                _sample_count = cur_count + np.linspace(
                     0, cur_len, cur_len, endpoint=False
                 ).astype("uint64")
 
+                cur_pd_array = pd.DataFrame(
+                    data=np.transpose(self.data[ind]), index=_sample_count, columns=cols
+                )
+                cur_pd_array.insert(0, "timestamp", cur_t_list)
+
                 if not self.wrote_first:
                     # create csv and write:
-                    cur_pd_array.to_csv(outfile)
+                    cur_pd_array.to_csv(outfile, header=True)
                     self.wrote_first = True
                 else:
                     cur_pd_array.to_csv(outfile, mode="a", header=False)
@@ -327,17 +329,19 @@ class Internal_ADC_Data:
                     0, cur_len * mult, cur_len, endpoint=False
                 )
                 logger.debug(f"SPI_ADC cur_t_list : {cur_t_list}")
-                cur_pd_array = pd.DataFrame(
-                    data=np.transpose(self.data[ind]), index=cur_t_list, columns=cols
-                )
-                cur_pd_array.index.name = "timestamp"
-                cur_pd_array["sample_count"] = cur_count + np.linspace(
+
+                _sample_count = cur_count + np.linspace(
                     0, cur_len, cur_len, endpoint=False
                 ).astype("uint64")
 
+                cur_pd_array = pd.DataFrame(
+                    data=np.transpose(self.data[ind]), index=_sample_count, columns=cols
+                )
+                cur_pd_array.insert(0, "timestamp", cur_t_list)
+
                 if not self.wrote_first:
                     # create csv and write:
-                    cur_pd_array.to_csv(outfile)
+                    cur_pd_array.to_csv(outfile, header=True)
                     self.wrote_first = True
                 else:
                     cur_pd_array.to_csv(outfile, mode="a", header=False)
