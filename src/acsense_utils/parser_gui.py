@@ -67,48 +67,63 @@ class MenuBar(tk.Menu):
         )
 
     def open_file(self):
-        self.parent.file_path = filedialog.askopenfilename(
+        _file_path = filedialog.askopenfilename(
             filetypes=(("DAT Files", "*.dat"), ("All files", "*.*"))
         )
-        self.parent.is_directory = os.path.isdir(self.parent.file_path)
-        logger.info(f"Selected file : {self.parent.file_path}")
+        self.parent.file_path = _file_path if _file_path not in [(), ""] else None
+        if self.parent.file_path:
+            logger.info(f"Selected file : {self.parent.file_path}")
 
     def open_dir(self):
-        self.parent.file_path = filedialog.askdirectory()
-        self.parent.is_directory = os.path.isdir(self.parent.file_path)
-        logger.info(f"Selected path : {self.parent.file_path}")
+        _file_path = filedialog.askdirectory(title="Choose Log Directory")
+        self.parent.file_path = _file_path if _file_path not in [(), ""] else None
+        if self.parent.file_path:
+            logger.info(f"Selected path : {self.parent.file_path}")
 
     def open_parse_dir(self):
-        self.parent.file_path = filedialog.askdirectory()
-        self.parent.is_directory = os.path.isdir(self.parent.file_path)
-        logger.info(f"Selected source path : {self.parent.file_path}")
+        _file_path = filedialog.askdirectory(title="Choose Log Directory")
+        self.parent.file_path = _file_path if _file_path not in [(), ""] else None
+        if self.parent.file_path:
+            logger.info(f"Selected source path : {self.parent.file_path}")
+        else:
+            return
 
         output_dir = filedialog.askdirectory(title="Choose Output Directory")
-        logger.info(f"Selected base path : {output_dir}")
-        output_dir = self.get_parser_outdir(output_dir)
-        logger.info(f"Output path will be : {output_dir}")
+        output_dir = output_dir if output_dir not in [(), ""] else None
+        if output_dir:
+            logger.info(f"Selected base path : {output_dir}")
+            output_dir = self.get_parser_outdir(output_dir)
+            logger.info(f"Output path will be : {output_dir}")
 
-        self.parent.parse_export_callback(
-            path_src=self.parent.file_path, output_dir=output_dir
-        )
+            self.parent.parse_export_callback(
+                path_src=self.parent.file_path, output_dir=output_dir
+            )
 
     def parse_path(self):
-        logger.info(f"Processing path : {self.parent.file_path}")
-        self.parent.parse_callback(self.parent.file_path)
+        if self.parent.file_path:
+            logger.info(f"Processing path : {self.parent.file_path}")
+            self.parent.parse_callback(self.parent.file_path)
+        else:
+            logger.warning(f"Invalid path! Currently set to : {self.parent.file_path}")
+            logger.warning("Please select a valid path before parsing")
 
     def export_to_csv(self):
         output_dir = filedialog.askdirectory(title="Choose Output Directory")
-        logger.info(f"Selected base path : {output_dir}")
+        output_dir = output_dir if output_dir not in [(), ""] else None
+        if output_dir:
+            logger.info(f"Selected base path : {output_dir}")
+            output_dir = self.get_parser_outdir(output_dir)
+            logger.info(f"Output path will be : {output_dir}")
 
-        output_dir = self.get_parser_outdir(output_dir)
-        logger.info(f"Output path will be : {output_dir}")
-
-        if output_dir != "":
             self.parent.save_csv_callback(self.parent.parsed, output_dir)
 
     def plot_parsed(self, plot_ac=False, plot_cam=False):
         parsed_dir = filedialog.askdirectory(title="Choose Parsed Data Directory")
-        logger.info(f"Selected data path : {parsed_dir}")
+        parsed_dir = parsed_dir if parsed_dir not in [(), ""] else None
+        if parsed_dir:
+            logger.info(f"Selected data path : {parsed_dir}")
+        else:
+            return
 
         # verify valid files are available in selected path:
         files = (
