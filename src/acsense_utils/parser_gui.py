@@ -342,11 +342,15 @@ class Parser_GUI_Tk(tk.Tk):
         for ii, fn in enumerate(files_to_process):
             _files_to_process.append((ii, self.args.use_int, fn, output_dir))
 
+        if len(_files_to_process) == 0:
+            return
+
         _n_sens = sum([x.startswith("SENS") for x in basenames])
         _n_aco = sum([x.startswith("AC") for x in basenames])
         logger.info(f"Exporting files to CSV : {_n_sens} SENS & {_n_aco} AC")
 
         nproc = max([1, cpu_count() - 4])
+        nproc = min([nproc, len(_files_to_process)])
         # nproc = min([max([1, cpu_count() - 4]), 8])
 
         # We must initialize progress bars here to prevent conflicting allocation
