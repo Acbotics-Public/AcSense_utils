@@ -13,7 +13,7 @@ from matplotlib import use as mpl_use
 from matplotlib.ticker import FormatStrFormatter
 
 mpl_use("agg")
-plt.style.use("seaborn-v0_8-darkgrid")
+plt.style.use("seaborn-darkgrid")
 
 
 logger = logging.getLogger(__name__)

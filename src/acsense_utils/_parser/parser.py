@@ -15,6 +15,7 @@ from .external_sensor_data import (
     NAU7802_Data,
     Ping_Data,
     RTC_Data,
+    RDO_Data,
 )
 from .generic_data import Generic_Data
 from .headers import Generic_Header, Internal_ADC_Header, SPI_ADC_Header
@@ -42,6 +43,7 @@ MSG_INFO = {
     0x0D: {"header": Generic_Header, "parser": Ping_Data},
     0x16: {"header": Generic_Header, "parser": Image_Meta_Data},
     0x17: {"header": Generic_Header, "parser": Ctd_Data},
+    0x1A: {"header": Generic_Header, "parser": RDO_Data},
 }
 
 
@@ -62,6 +64,8 @@ class Parser:
             0x14: gen_hdr,
             0x16: gen_hdr,
             0x17: gen_hdr,
+            0x18: gen_hdr,
+            0x1A: gen_hdr,
         }
 
         self.parsers = [
@@ -156,6 +160,13 @@ class Parser:
                 "ID2": "T",
                 "parser": Ctd_Data(),
             },
+            {
+                "msg_id": 0x1A,
+                "header": gen_hdr,
+                "ID1": "R",
+                "ID2": "D",
+                "parser": RDO_Data(),
+            },
         ]
         self.block_size = block_size
         self.sens_dict = {}
@@ -200,9 +211,11 @@ class Parser:
             return self.parsers
 
         prog_bar = tqdm(
-            desc=f"Exporting to CSV from {os.path.basename(fn):26s}"
-            if export
-            else f"Parsing {os.path.basename(fn):40s}",
+            desc=(
+                f"Exporting to CSV from {os.path.basename(fn):26s}"
+                if export
+                else f"Parsing {os.path.basename(fn):40s}"
+            ),
             total=file_size,
             position=pbar_position,
         )

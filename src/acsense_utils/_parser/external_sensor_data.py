@@ -383,3 +383,43 @@ class RTC_Data(Generic_Data):
 
     def get_name(self):
         return "RTC"
+
+
+class RDO_Data(Generic_Data):
+    def __init__(self):
+        self.timestamps = []
+        # self.data = []
+        self.serial_id = []
+        self.modbus_id = []
+        self.param = []
+        self.value = []
+        self.quality = []
+        self.units = []
+
+    def _parse(self, header, raw_data):
+        data = np.frombuffer(raw_data, count=2, dtype=np.uint8)
+        self.timestamps.append(header["Header"].timestamp)
+        # self.data.append(data)
+        self.serial_id.append(data[0])
+        self.modbus_id.append(data[1])
+        data = np.frombuffer(raw_data, count=1, dtype=np.uint16, offset=2)
+        self.param.append(data[0])
+        data = np.frombuffer(raw_data, count=1, dtype=np.float32, offset=4)
+        self.value.append(data[0])
+        data = np.frombuffer(raw_data, count=2, dtype=np.uint16, offset=8)
+        self.quality.append(data[0])
+        self.units.append(data[1])
+
+    def as_dict(self):
+        res = {}
+        res["timestamp"] = self.timestamps
+        res["serial_id"] = self.serial_id
+        res["modbus_id"] = self.modbus_id
+        res["param"] = self.param
+        res["value"] = self.value
+        res["quality"] = self.quality
+        res["units"] = self.units
+        return res
+
+    def get_name(self):
+        return "RDO"

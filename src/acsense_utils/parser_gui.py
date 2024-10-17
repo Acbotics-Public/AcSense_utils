@@ -250,7 +250,7 @@ class Parser_GUI_Tk(tk.Tk):
         export=False,
         output_dir=None,
         pbar_position=None,
-    ) -> dict | None:
+    ):  # -> dict | None:
         # path_src = path_src or self.file_path
         parsed = {}
 
