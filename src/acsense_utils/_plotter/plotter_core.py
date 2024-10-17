@@ -19,7 +19,11 @@ from matplotlib import use as mpl_use
 from . import plotter_funcs as pf
 
 mpl_use("agg")
-plt.style.use("seaborn-darkgrid")
+
+if "seaborn-darkgrid" in plt.style.available:
+    plt.style.use("seaborn-darkgrid")
+elif "seaborn-v0_8-darkgrid" in plt.style.available:
+    plt.style.use("seaborn-v0_8-darkgrid")
 
 logger = logging.getLogger(__name__)
 
