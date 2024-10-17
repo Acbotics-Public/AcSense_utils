@@ -13,8 +13,10 @@ from matplotlib import use as mpl_use
 from matplotlib.ticker import FormatStrFormatter
 
 mpl_use("agg")
-plt.style.use("seaborn-v0_8-darkgrid")
-
+if "seaborn-darkgrid" in plt.style.available:
+    plt.style.use("seaborn-darkgrid")
+elif "seaborn-v0_8-darkgrid" in plt.style.available:
+    plt.style.use("seaborn-v0_8-darkgrid")
 
 logger = logging.getLogger(__name__)
 
