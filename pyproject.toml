@@ -8,6 +8,9 @@ version = "0.0.1"
 dependencies = [
     "tqdm",
     "pandas",
+    "scipy",
+    "matplotlib",
+    "pynmeagps",
 ]
 
 [project.scripts]
