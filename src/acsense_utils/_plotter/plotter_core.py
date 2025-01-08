@@ -299,6 +299,9 @@ def plot_multichannel_acoustics(xaxis, acoustic_data, acoustic_meta, fname_out):
         figsize=(20, 10),
         constrained_layout=True,
     )
+    if len(ch_cols) == 1:
+        axs = np.array([axs])
+
     for ii, ch in enumerate(ch_cols[:]):
         cur_data = acoustic_data[ch].to_numpy()
         axs[ii].plot(x_axis, cur_data - np.mean(cur_data))
