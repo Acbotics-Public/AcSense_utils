@@ -68,6 +68,7 @@ class Parser:
             0x17: gen_hdr,
             0x18: gen_hdr,
             0x1A: gen_hdr,
+            0x1B: gen_hdr,
             0x1E: gen_hdr,
         }
 
