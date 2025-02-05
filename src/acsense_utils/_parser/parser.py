@@ -16,6 +16,7 @@ from .external_sensor_data import (
     Ping_Data,
     RTC_Data,
     RDO_Data,
+    BNO_Data,
 )
 from .generic_data import Generic_Data
 from .headers import Generic_Header, Internal_ADC_Header, SPI_ADC_Header
@@ -44,6 +45,7 @@ MSG_INFO = {
     0x16: {"header": Generic_Header, "parser": Image_Meta_Data},
     0x17: {"header": Generic_Header, "parser": Ctd_Data},
     0x1A: {"header": Generic_Header, "parser": RDO_Data},
+    0x1E: {"header": Generic_Header, "parsed": BNO_Data},
 }
 
 
@@ -66,6 +68,7 @@ class Parser:
             0x17: gen_hdr,
             0x18: gen_hdr,
             0x1A: gen_hdr,
+            0x1E: gen_hdr,
         }
 
         self.parsers = [
@@ -166,6 +169,13 @@ class Parser:
                 "ID1": "R",
                 "ID2": "D",
                 "parser": RDO_Data(),
+            },
+            {
+                "msg_id": 0x1B,
+                "header": gen_hdr,
+                "ID1": "B",
+                "ID2": "N",
+                "parser": BNO_Data(),
             },
         ]
         self.block_size = block_size

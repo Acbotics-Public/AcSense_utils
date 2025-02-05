@@ -59,6 +59,11 @@ class GPS_Data(Generic_Data):
                 data["UnixTime"] = datetime.datetime.strptime(
                     data["timestr"] + "Z", "%Y-%m-%d_T%H:%M:%S%z"
                 ).timestamp()
+        else:
+            try:
+                msg = NMEAReader.parse(st)
+            except Exception as e:
+                logger.info("failed to parse " + repr(st) + " " + repr(e))
 
         self.timestamps.append(data["timestamp"])
         self.nmea.append(data["raw_nmea"])
@@ -383,6 +388,60 @@ class RTC_Data(Generic_Data):
 
     def get_name(self):
         return "RTC"
+
+
+class BNO_Data(Generic_Data):
+    def __init__(self):
+        self.timestamps = []
+        self.index = []
+        self.yaw = []
+        self.pitch = []
+        self.roll = []
+        self.accel_x = []
+        self.accel_y = []
+        self.accel_z = []
+        self.MI = []
+        self.MR = []
+        self.rsv = []
+
+    def _parse(self, header, raw_data):
+        pass
+
+        # res = {}
+        Imu = namedtuple(
+            "Imu",
+            "Index YawX100 PitchX100 RollX100 Accel_X Accel_Y Accel_Z, MI, MR, rsv",
+        )
+
+        data = Imu._make(struct.unpack("<bhhhhhhbbb", raw_data))
+        self.timestamps.append(header["Header"].timestamp)
+        self.yaw.append(data.YawX100)
+        self.pitch.append(data.PitchX100)
+        self.roll.append(data.RollX100)
+        self.accel_x.append(data.Accel_X)
+        self.accel_y.append(data.Accel_Y)
+        self.accel_z.append(data.Accel_Z)
+        self.MI.append(data.MI)
+        self.MR.append(data.MR)
+        self.rsv.append(data.rsv)
+
+    def as_dict(self):
+        dic = {
+            "timestamp": self.timestamps,
+            "Yaw_DegreesX100": self.yaw,
+            "Pitch_DegreesX100": self.pitch,
+            "Roll_DegreesX100": self.roll,
+            "Accel_X": self.accel_x,
+            "Accel_Y": self.accel_y,
+            "Accel_Z": self.accel_z,
+            "MI": self.MI,
+            "MR": self.MR,
+            "rsv": self.rsv,
+        }
+        return dic
+
+    def get_name(self):
+        return "BNO"
 
 
 class RDO_Data(Generic_Data):
