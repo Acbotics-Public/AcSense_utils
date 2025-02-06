@@ -27,7 +27,8 @@ elif "seaborn-v0_8-darkgrid" in plt.style.available:
 
 logger = logging.getLogger(__name__)
 
-TICK = 1e-9  # sample interval for internal timestamp is s
+# TICK = 1e-9  # sample interval for internal timestamp is s
+TICK = 1e-8  # sample interval for internal timestamp is s
 acc_correction = 9.81 / 2059  # acceleration correction for m/s^2
 
 
@@ -381,7 +382,7 @@ def plot_cam_frame_points(
             ff = cur_cam["file_number"]
 
             # get camera file:
-            _img_pattern = "**/" + img_pattern + "*" + str(ff) + ".jpg"
+            _img_pattern = "**/" + img_pattern + "*_" + str(ff) + ".jpg"
             _img_pattern = os.path.join(img_dir, _img_pattern)
             cur_file = sorted(glob.glob(_img_pattern, recursive=True))
             if len(cur_file) > 0:

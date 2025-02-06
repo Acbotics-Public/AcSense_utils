@@ -6,6 +6,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm  # type: ignore
 
 from .adc_data import Internal_ADC_Data, SPI_ADC_Data
 from .external_sensor_data import (
+    BNO_Data,
     Ctd_Data,
     External_PTS_Data_Bar30,
     External_PTS_Data_Bar100,
@@ -14,9 +15,8 @@ from .external_sensor_data import (
     Magnetometer_Data,
     NAU7802_Data,
     Ping_Data,
-    RTC_Data,
     RDO_Data,
-    BNO_Data,
+    RTC_Data,
 )
 from .generic_data import Generic_Data
 from .headers import Generic_Header, Internal_ADC_Header, SPI_ADC_Header
@@ -24,7 +24,7 @@ from .internal_sensor_data import IMU_Data, Internal_PTS_Data
 
 logger = logging.getLogger(__name__)
 
-TICK = 1e-9  # sample interval is s
+# TICK = 1e-9  # sample interval is s
 
 MSG_INFO = {
     0x09: {"header": SPI_ADC_Header, "parser": SPI_ADC_Data},
