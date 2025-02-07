@@ -29,6 +29,8 @@ def txt_to_acsense(inputfname, outputfname):
 	outfd = open(outputfname, 'wb')
 	for line in open(inputfname, 'r'):
 		bstr = line.strip().encode('ascii')
+		if len(bstr) > 64:
+			raise ValueError('String on line {:d} is {:d} bytes long, max allowed is 64 bytes'.format(linectr+1, len(bstr)))
 		outstr = bstr + b'\x00'*(64-len(bstr))
 		outfd.write(outstr)
 		linectr += 1
