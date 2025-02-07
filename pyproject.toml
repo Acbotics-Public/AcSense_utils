@@ -16,3 +16,5 @@ dependencies = [
 [project.scripts]
 acsense-parse = "acsense_utils.parser_gui:run_parser_gui"
 acsense-plot = "acsense_utils.plotter:run_plotter_cli"
+acsense-txt2cfg = "acsense_utils.config_converter:run_txt2cfg"
+acsense-cfg2txt = "acsense_utils.config_converter:run_cfg2txt"
