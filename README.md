@@ -104,3 +104,20 @@ To plot camera frames alongside data:
 1. Select the target directory containing the parsed data as CSV files
 1. Select the original log directory containing the captured image files
 
+# Config file conversion utility
+
+A utility is provided to convert config files between the custom AcSense .cfg format
+and a standard text file.  Each line of the text file corresponds to a single 64-byte 
+entry in the AcSense format.
+
+To convert an existing config file into a more easily-edited config file, run:
+
+```bash
+acsense_cfg2txt /path/to/acsense/DefaultCfg.cfg /path/to/output.txt
+```
+
+To convert back, use the opposite tool with the arguments reversed:
+
+```bash
+acsense_txt2cfg /path/to/output.txt /path/to/acsense/DefaultCfg.cfg 
+```
