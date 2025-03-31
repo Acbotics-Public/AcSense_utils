@@ -154,6 +154,7 @@ class SPI_ADC_Data:
                     data=np.transpose(self.data[ind]), index=_sample_count, columns=cols
                 )
                 cur_pd_array.insert(0, "timestamp", cur_t_list)
+                cur_pd_array.index.name = "index"
 
                 if not self.wrote_first:
                     # create csv and write:

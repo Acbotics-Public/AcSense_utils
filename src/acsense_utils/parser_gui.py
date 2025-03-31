@@ -481,6 +481,7 @@ class Parser_GUI_Tk(tk.Tk):
 
                         if len(d["timestamp"]) > 0:
                             data = pd.DataFrame(d)
+                            data.index.name = "index"
 
                             chunks = np.array_split(
                                 data.index, 100
