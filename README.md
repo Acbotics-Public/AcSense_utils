@@ -104,3 +104,20 @@ To plot camera frames alongside data:
 1. Select the target directory containing the parsed data as CSV files
 1. Select the original log directory containing the captured image files
 
+
+# Troubleshooting
+
+## Command not found : path issues
+
+If your system path is not correctly set to include the location of installed Python binaries, the `acsense-parse` command may produce an error such as:
+
+```text
+acsense-parse: command not found
+```
+
+**RECOMMENDED** : This issue can be solved by using a virtual environment (venv); make sure the venv is active before installing the `AcSense_utils` package. The venv activation will augment your path to include any custom entrypoints and binaries installed within the venv. For an introduction to Python virtual environments, check out the built-in `venv` module at [https://docs.python.org/3/library/venv.html](https://docs.python.org/3/library/venv.html).
+
+**ALTERNATIVE** : The issue can also be solved by augmenting your path to include the location of the target entrypoints. Typical locations for Python entrypoints include:
+
+- Ubuntu: `~/.local/bin`
+- MacOS: `~/Library/Python/{VERSION}/bin`
