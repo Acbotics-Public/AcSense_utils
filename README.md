@@ -107,6 +107,20 @@ To plot camera frames alongside data:
 
 # Troubleshooting
 
+## Parser mode : internal vs external ADC
+
+When processing acoustic data logged by the AcSense onto the SD card, the parser utility needs to know which ADC module was used as the data source. The AcSense supports the following module for acoustic data acquisition:
+
+- An internal 12-bit ADC, configured via the `INTADC` keyword on the SD configuration file. The internal ADC is built onto the core AcSense-Digital board, allowing for a smaller physical footprint.
+- External 16-bit ADC modules, available in the form of stackable AcSense-ADM expansion boards that interface with the AcSense-Digital using an SPI interface. The external ADC driver is configured via the `ADC` keyword in the SD configuration file.
+
+To identify the appropriate parsing mode, make note of the physical boards in use or look at the `DefaultConfig.cfg` on your SD card. On a Linux system, the `strings` command can be used to print the binary configuration file to the terminal in a human-readable form:
+
+```bash
+strings DefaultConfig.cfg
+```
+ A line starting with `ADC ON [...]` implies the external SPI ADC is being used; a line starting with `INTADC ON [...]` implies the internal ADC is being used instead.
+
 ## Command not found : path issues
 
 If your system path is not correctly set to include the location of installed Python binaries, the `acsense-parse` command may produce an error such as:
