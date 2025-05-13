@@ -480,6 +480,8 @@ class Parser_GUI_Tk(tk.Tk):
                         d = p["parser"].as_dict()
 
                         if len(d["timestamp"]) > 0:
+                            for k in d.keys():
+                                print(repr(k) + " " + repr(len(d[k])))
                             data = pd.DataFrame(d)
                             data.index.name = "index"
 

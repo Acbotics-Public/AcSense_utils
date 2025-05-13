@@ -219,6 +219,7 @@ class Internal_ADC_Data:
         output_dir=None,
         input_filename=None,
     ):
+        print(header)
         num_channels = header["Header"].channels
         bytes_per_channel = header["Header"].bytesPerChannel
         num_records = header["Header"].dataRecordsPerBuffer
@@ -295,7 +296,10 @@ class Internal_ADC_Data:
                 dic["channel_" + repr(i)] = []
 
             for ind in range(len(self.data)):
+                # print(self.data[ind].shape)
                 for i in range(self.data[ind].shape[1]):
+                    if self.data[ind].shape[0] == 0:
+                        continue
                     dic["timestamp"].append(
                         self.timestamps[ind] + i * 1.0e8 * (1.0 / self.sample_rate)
                     )
