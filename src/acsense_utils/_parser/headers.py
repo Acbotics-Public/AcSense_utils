@@ -7,8 +7,13 @@ logger = logging.getLogger(__name__)
 
 
 class Internal_ADC_Header:
-    def __init__(self):
-        self.struct_format = "<BBBBBBHfIQd"
+    def __init__(self, double_sample_rate=False):
+        if (
+            double_sample_rate
+        ):  # handles older headers that used double rather than float.
+            self.struct_format = "<BBBBBBHdIQd"
+        else:
+            self.struct_format = "<BBBBBBHfIQd"
         self.header_size_bytes = struct.calcsize(self.struct_format)
         self.header = namedtuple(
             "Header",
