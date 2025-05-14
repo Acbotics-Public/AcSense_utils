@@ -50,9 +50,9 @@ MSG_INFO = {
 
 
 class Parser:
-    def __init__(self, block_size=512):
+    def __init__(self, block_size=512, double_sample_rate=False):
         gen_hdr = Generic_Header()
-        int_adc_header = Internal_ADC_Header()
+        int_adc_header = Internal_ADC_Header(double_sample_rate)
         spi_adc_header = SPI_ADC_Header()
         self.headers = {
             0x09: spi_adc_header,

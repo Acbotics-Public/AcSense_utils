@@ -250,6 +250,7 @@ class Parser_GUI_Tk(tk.Tk):
         export=False,
         output_dir=None,
         pbar_position=None,
+        use_double_sr=False,
     ):
         # path_src = path_src or self.file_path
         parsed = {}
@@ -258,7 +259,7 @@ class Parser_GUI_Tk(tk.Tk):
             return None
 
         if os.path.isfile(path_src):
-            p = Parser()
+            p = Parser(double_sample_rate=use_double_sr)
             fn = os.path.basename(path_src).split("/")[-1]
             if fn.startswith("AC"):
                 parsed = {
@@ -298,7 +299,7 @@ class Parser_GUI_Tk(tk.Tk):
 
             for fn in files_to_process:
                 logger.info(f"Loading {fn}")
-                p = Parser()
+                p = Parser(double_sample_rate=use_double_sr)
                 try:
                     if fn.startswith("AC"):
                         parsed[fn] = copy.deepcopy(
@@ -321,7 +322,11 @@ class Parser_GUI_Tk(tk.Tk):
 
     def parse_callback(self, path_src=None, redraw=True):
         # path_src = path_src or self.file_path
-        self.parsed = self._parse_callback(path_src=path_src, use_int=self.args.use_int)
+        self.parsed = self._parse_callback(
+            path_src=path_src,
+            use_int=self.args.use_int,
+            use_double_sr=self.args.use_double_sr,
+        )
         if redraw:
             self.redraw_channels()
 
@@ -537,6 +542,12 @@ def run_parser_gui():
         action="store_true",
         help="Use INT (Internal ADC) Mode on launch (can be switched on GUI)",
     )
+    parser.add_argument(
+        "--use_double_sr",
+        action="store_true",
+        help="Use double precision sample rate on int adc for use with older headers",
+    )
+
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Show verbose logs (detailed)"
     )
