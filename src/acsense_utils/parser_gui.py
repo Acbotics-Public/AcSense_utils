@@ -332,13 +332,15 @@ class Parser_GUI_Tk(tk.Tk):
 
     @staticmethod
     def _parse_export_callback(args):
-        idx, use_int, fn, output_dir = args
+        idx, use_int, fn, output_dir, use_double_sr = args
+
         Parser_GUI_Tk._parse_callback(
             path_src=fn,
             use_int=use_int,
             export=True,
             output_dir=output_dir,
             pbar_position=current_process()._identity[0] - 1,
+            use_double_sr=use_double_sr,
         )
 
     def parse_export_callback(self, path_src=None, output_dir=None):
@@ -360,7 +362,9 @@ class Parser_GUI_Tk(tk.Tk):
 
         _files_to_process = []
         for ii, fn in enumerate(files_to_process):
-            _files_to_process.append((ii, self.args.use_int, fn, output_dir))
+            _files_to_process.append(
+                (ii, self.args.use_int, fn, output_dir, self.args.use_double_sr)
+            )
 
         if len(_files_to_process) == 0:
             return
