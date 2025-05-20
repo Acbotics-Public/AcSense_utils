@@ -251,6 +251,7 @@ class Parser_GUI_Tk(tk.Tk):
         output_dir=None,
         pbar_position=None,
         use_double_sr=False,
+        use_int_sr=False,
     ):
         # path_src = path_src or self.file_path
         parsed = {}
@@ -259,7 +260,7 @@ class Parser_GUI_Tk(tk.Tk):
             return None
 
         if os.path.isfile(path_src):
-            p = Parser(double_sample_rate=use_double_sr)
+            p = Parser(double_sample_rate=use_double_sr, use_int_sr=use_int_sr)
             fn = os.path.basename(path_src).split("/")[-1]
             if fn.startswith("AC"):
                 parsed = {
@@ -299,7 +300,7 @@ class Parser_GUI_Tk(tk.Tk):
 
             for fn in files_to_process:
                 logger.info(f"Loading {fn}")
-                p = Parser(double_sample_rate=use_double_sr)
+                p = Parser(double_sample_rate=use_double_sr, use_int_sr=use_int_sr)
                 try:
                     if fn.startswith("AC"):
                         parsed[fn] = copy.deepcopy(
@@ -326,13 +327,14 @@ class Parser_GUI_Tk(tk.Tk):
             path_src=path_src,
             use_int=self.args.use_int,
             use_double_sr=self.args.use_double_sr,
+            use_int_sr=self.args.use_int_sr,
         )
         if redraw:
             self.redraw_channels()
 
     @staticmethod
     def _parse_export_callback(args):
-        idx, use_int, fn, output_dir, use_double_sr = args
+        idx, use_int, fn, output_dir, use_double_sr, use_int_sr = args
 
         Parser_GUI_Tk._parse_callback(
             path_src=fn,
@@ -341,6 +343,7 @@ class Parser_GUI_Tk(tk.Tk):
             output_dir=output_dir,
             pbar_position=current_process()._identity[0] - 1,
             use_double_sr=use_double_sr,
+            use_int_sr=use_int_sr,
         )
 
     def parse_export_callback(self, path_src=None, output_dir=None):
@@ -363,7 +366,14 @@ class Parser_GUI_Tk(tk.Tk):
         _files_to_process = []
         for ii, fn in enumerate(files_to_process):
             _files_to_process.append(
-                (ii, self.args.use_int, fn, output_dir, self.args.use_double_sr)
+                (
+                    ii,
+                    self.args.use_int,
+                    fn,
+                    output_dir,
+                    self.args.use_double_sr,
+                    self.args.use_int_sr,
+                )
             )
 
         if len(_files_to_process) == 0:
@@ -550,6 +560,11 @@ def run_parser_gui():
         "--use_double_sr",
         action="store_true",
         help="Use double precision sample rate on int adc for use with older headers",
+    )
+    parser.add_argument(
+        "--use_int_sr",
+        action="store_true",
+        help="Use integer sample rate on ext adc for use with older headers",
     )
 
     parser.add_argument(

@@ -33,8 +33,12 @@ class Internal_ADC_Header:
 
 
 class SPI_ADC_Header:
-    def __init__(self):
-        self.struct_format = "<BBBBBBHIIQd"
+    def __init__(self, use_int_sr=False):
+        if use_int_sr:
+            self.struct_format = "<BBBBBBHIIQd"
+        else:
+            self.struct_format = "<BBBBBBHfIQd"
+
         self.header_size_bytes = struct.calcsize(self.struct_format)
         self.header = namedtuple(
             "Header",
