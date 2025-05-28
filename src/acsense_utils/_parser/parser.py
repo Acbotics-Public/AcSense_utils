@@ -7,6 +7,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm  # type: ignore
 from .adc_data import Internal_ADC_Data, SPI_ADC_Data
 from .external_sensor_data import (
     BNO_Data,
+    BNR_Data,
     Ctd_Data,
     External_PTS_Data_Bar30,
     External_PTS_Data_Bar100,
@@ -18,7 +19,6 @@ from .external_sensor_data import (
     RDO_Data,
     RTC_Data,
 )
-from .generic_data import Generic_Data
 from .headers import Generic_Header, Internal_ADC_Header, SPI_ADC_Header
 from .internal_sensor_data import IMU_Data, Internal_PTS_Data
 
@@ -26,27 +26,27 @@ logger = logging.getLogger(__name__)
 
 # TICK = 1e-9  # sample interval is s
 
-MSG_INFO = {
-    0x09: {"header": SPI_ADC_Header, "parser": SPI_ADC_Data},
-    0x0F: {
-        "header": Internal_ADC_Header,
-        "parser": Internal_ADC_Data,
-    },
-    0x0B: {
-        "header": Generic_Header,
-        "parser": Internal_PTS_Data,
-    },
-    0x0C: {"header": Generic_Header, "parser": IMU_Data},
-    0x0E: {"header": Generic_Header, "parser": RTC_Data},
-    0x10: {"name": "external pts", "header": Generic_Header, "parser": Generic_Data},
-    0x11: {"header": Generic_Header, "parser": GPS_Data},
-    0x12: {"header": Generic_Header, "parser": Generic_Data},
-    0x0D: {"header": Generic_Header, "parser": Ping_Data},
-    0x16: {"header": Generic_Header, "parser": Image_Meta_Data},
-    0x17: {"header": Generic_Header, "parser": Ctd_Data},
-    0x1A: {"header": Generic_Header, "parser": RDO_Data},
-    0x1E: {"header": Generic_Header, "parsed": BNO_Data},
-}
+# MSG_INFO = {
+#     0x09: {"header": SPI_ADC_Header, "parser": SPI_ADC_Data},
+#     0x0F: {
+#         "header": Internal_ADC_Header,
+#         "parser": Internal_ADC_Data,
+#     },
+#     0x0B: {
+#         "header": Generic_Header,
+#         "parser": Internal_PTS_Data,
+#     },
+#     0x0C: {"header": Generic_Header, "parser": IMU_Data},
+#     0x0E: {"header": Generic_Header, "parser": RTC_Data},
+#     0x10: {"name": "external pts", "header": Generic_Header, "parser": Generic_Data},
+#     0x11: {"header": Generic_Header, "parser": GPS_Data},
+#     0x12: {"header": Generic_Header, "parser": Generic_Data},
+#     0x0D: {"header": Generic_Header, "parser": Ping_Data},
+#     0x16: {"header": Generic_Header, "parser": Image_Meta_Data},
+#     0x17: {"header": Generic_Header, "parser": Ctd_Data},
+#     0x1A: {"header": Generic_Header, "parser": RDO_Data},
+#     0x1E: {"header": Generic_Header, "parsed": BNO_Data},
+# }
 
 
 class Parser:
@@ -68,8 +68,9 @@ class Parser:
             0x17: gen_hdr,
             0x18: gen_hdr,
             0x1A: gen_hdr,
-            0x1B: gen_hdr,
-            0x1E: gen_hdr,
+            0x1C: gen_hdr,
+            0x1D: gen_hdr,
+            # 0x1E: gen_hdr,
         }
 
         self.parsers = [
@@ -172,11 +173,18 @@ class Parser:
                 "parser": RDO_Data(),
             },
             {
-                "msg_id": 0x1B,
+                "msg_id": 0x1C,
                 "header": gen_hdr,
                 "ID1": "B",
                 "ID2": "N",
                 "parser": BNO_Data(),
+            },
+            {
+                "msg_id": 0x1D,
+                "header": gen_hdr,
+                "ID1": "B",
+                "ID2": "R",
+                "parser": BNR_Data(),
             },
         ]
         self.block_size = block_size
@@ -300,7 +308,11 @@ class Parser:
         next_index = self.read_index(f)
         msg_id = int.from_bytes(f.read(2), "little")
         # logger.debug(f"next->{next_index}, tell->{f.tell()}, msg_id {msg_id}")
-        header = self.headers[msg_id]
+        if msg_id in self.headers:
+            header = self.headers[msg_id]
+        else:
+            logger.info(f"Using generic header for message ID {msg_id} ({hex(msg_id)})")
+            header = Generic_Header()
         h = header.read_header(f)
         data = f.read(h["payload_bytes"])
         for d in self.parsers:
