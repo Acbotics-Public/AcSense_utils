@@ -486,7 +486,7 @@ class Parser_GUI_Tk(tk.Tk):
 
                         if len(d["timestamp"]) > 0:
                             for k in d.keys():
-                                print(repr(k) + " " + repr(len(d[k])))
+                                logger.info(f"{k} {len(d[k])}")
                             data = pd.DataFrame(d)
                             data.index.name = "index"
 
