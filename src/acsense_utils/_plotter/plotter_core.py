@@ -262,7 +262,7 @@ def plot_data_dict(
             )
 
             fig2.tight_layout()
-            fig2.savefig(outfile.split(".")[0] + "_acoust.png")
+            fig2.savefig(outfile.rsplit(".", 1)[0] + "_acoust.png")
 
             ax_ind = ax_ind + 1
 
