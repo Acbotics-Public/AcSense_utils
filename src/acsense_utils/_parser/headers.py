@@ -33,7 +33,7 @@ class Internal_ADC_Header:
 
 
 class SPI_ADC_Header:
-    def __init__(self, use_int_sr=False):
+    def __init__(self, use_int_sr=False, use_buff_size=None):
         if use_int_sr:
             self.struct_format = "<BBBBBBHIIQd"
         else:
@@ -44,6 +44,7 @@ class SPI_ADC_Header:
             "Header",
             "versionId channels bitsPerChannel bytesPerChannel unpackedShiftRight overflowCount dataRecordsPerBuffer sampleRate sampleCount timestamp scale",
         )
+        self.header.use_buff_size = use_buff_size
 
     def read_header(self, f):
         h = handle_adc_header_read_verify(self, f)

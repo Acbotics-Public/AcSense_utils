@@ -17,6 +17,8 @@ from .external_sensor_data import (
     Ping_Data,
     RDO_Data,
     RTC_Data,
+    Atlas_Data,
+    Turbidity_DF_Data,
 )
 from .generic_data import Generic_Data
 from .headers import Generic_Header, Internal_ADC_Header, SPI_ADC_Header
@@ -178,6 +180,20 @@ class Parser:
                 "ID2": "N",
                 "parser": BNO_Data(),
             },
+            {
+                "msg_id": 0x12,
+                "header": gen_hdr,
+                "ID1": "A",
+                "ID2": "T",
+                "parser": Atlas_Data(),
+            },
+            {
+                "msg_id": 0x12,
+                "header": gen_hdr,
+                "ID1": "T",
+                "ID2": "U",
+                "parser": Turbidity_DF_Data(),
+            },
         ]
         self.block_size = block_size
         self.sens_dict = {}
@@ -303,14 +319,16 @@ class Parser:
         header = self.headers[msg_id]
         h = header.read_header(f)
         data = f.read(h["payload_bytes"])
+        print("Pre loop")
+
         for d in self.parsers:
             if d["msg_id"] == msg_id:
                 if h["Type"] == "Generic":
-                    for d in self.parsers:
-                        if d["ID1"] == chr(h["Header"].id1) and d["ID2"] == chr(
-                            h["Header"].id2
-                        ):
-                            d["parser"]._parse(h, data)
+                    if d["ID1"] == chr(h["Header"].id1) and d["ID2"] == chr(
+                        h["Header"].id2
+                    ):
+                        d["parser"]._parse(h, data)
+                        print("Call Parse")
                 elif h["Type"] == "InternalADC":
                     d["parser"]._parse(h, data)
 
