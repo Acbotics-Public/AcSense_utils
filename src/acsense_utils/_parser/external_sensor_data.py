@@ -499,7 +499,7 @@ class Atlas_Data(Generic_Data):
         data = np.frombuffer(raw_data, count=4, dtype=np.uint8)
         self.sensor_type.append(data[0])
         self.i2c_address.append(data[1])
-        print("atlas parse")
+        # print("atlas parse")
         self.rsv1.append(data[2])
         self.rsv2.append(data[3])
         data = np.frombuffer(raw_data, count=1, dtype=np.float32, offset=4)
@@ -534,7 +534,7 @@ class Turbidity_DF_Data(Generic_Data):
         data = np.frombuffer(raw_data, offset=2, count=2, dtype=np.uint8)
         self.rsv1.append(data[0])
         self.rsv2.append(data[1])
-        print(header)
+        # print(header)
 
     def as_dict(self):
         res = {}
