@@ -319,7 +319,7 @@ class Parser:
         header = self.headers[msg_id]
         h = header.read_header(f)
         data = f.read(h["payload_bytes"])
-        print("Pre loop")
+        # print("Pre loop")
 
         for d in self.parsers:
             if d["msg_id"] == msg_id:
@@ -328,7 +328,7 @@ class Parser:
                         h["Header"].id2
                     ):
                         d["parser"]._parse(h, data)
-                        print("Call Parse")
+                        # print("Call Parse")
                 elif h["Type"] == "InternalADC":
                     d["parser"]._parse(h, data)
 
