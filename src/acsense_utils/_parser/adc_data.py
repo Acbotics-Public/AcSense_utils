@@ -45,6 +45,7 @@ class SPI_ADC_Data:
         offset_step = bytes_per_channel * num_channels
         # logger.debug(header)
         # logger.debug(data.shape)
+        # print(raw_data)
         do_break = False
         for i in range(num_records):
             for j in range(num_channels):
@@ -66,6 +67,10 @@ class SPI_ADC_Data:
                     break
             if do_break:
                 break
+        # print(repr(data))
+        # from time import sleep
+
+        # sleep(5)
 
         self.data.append(data)
         self.timestamps.append(header["Header"].timestamp)
@@ -219,7 +224,7 @@ class Internal_ADC_Data:
         output_dir=None,
         input_filename=None,
     ):
-        print(header)
+        # print(header)
         num_channels = header["Header"].channels
         bytes_per_channel = header["Header"].bytesPerChannel
         num_records = header["Header"].dataRecordsPerBuffer
