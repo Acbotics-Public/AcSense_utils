@@ -393,56 +393,88 @@ class RTC_Data(Generic_Data):
 class BNO_Data(Generic_Data):
     def __init__(self):
         self.timestamps = []
-        self.index = []
-        self.yaw = []
-        self.pitch = []
-        self.roll = []
-        self.accel_x = []
-        self.accel_y = []
-        self.accel_z = []
-        self.MI = []
-        self.MR = []
-        self.rsv = []
+        self.type = []
+        self.status = []
+        self.sense_x = []
+        self.sense_y = []
+        self.sense_z = []
 
     def _parse(self, header, raw_data):
         pass
 
         # res = {}
-        Imu = namedtuple(
-            "Imu",
-            "Index YawX100 PitchX100 RollX100 Accel_X Accel_Y Accel_Z, MI, MR, rsv",
+        Bno = namedtuple(
+            "Bno",
+            "type status sense_x sense_y sense_z",
         )
 
-        data = Imu._make(struct.unpack("<bhhhhhhbbb", raw_data))
+        # print("Raw data length (BNO) ",len(raw_data))
+        # data = Bno._make(struct.unpack("<bhhhhhhbbb", raw_data))
+        data = Bno._make(struct.unpack("<cbhhh", raw_data))
         self.timestamps.append(header["Header"].timestamp)
-        self.yaw.append(data.YawX100)
-        self.pitch.append(data.PitchX100)
-        self.roll.append(data.RollX100)
-        self.accel_x.append(data.Accel_X)
-        self.accel_y.append(data.Accel_Y)
-        self.accel_z.append(data.Accel_Z)
-        self.MI.append(data.MI)
-        self.MR.append(data.MR)
-        self.rsv.append(data.rsv)
+        self.type.append(data.type)
+        self.status.append(data.status)
+        self.sense_x.append(data.sense_x)
+        self.sense_y.append(data.sense_y)
+        self.sense_z.append(data.sense_z)
 
     def as_dict(self):
         dic = {
             "timestamp": self.timestamps,
-            "Yaw_DegreesX100": self.yaw,
-            "Pitch_DegreesX100": self.pitch,
-            "Roll_DegreesX100": self.roll,
-            "Accel_X": self.accel_x,
-            "Accel_Y": self.accel_y,
-            "Accel_Z": self.accel_z,
-            "MI": self.MI,
-            "MR": self.MR,
-            "rsv": self.rsv,
+            "sensor_type": self.type,
+            "sensor_status": self.status,
+            "sense_x": self.sense_x,
+            "sense_y": self.sense_y,
+            "sense_z": self.sense_z,
         }
         return dic
 
     def get_name(self):
         return "BNO"
 
+class BNR_Data(Generic_Data):
+    def __init__(self):
+        self.timestamps = []
+        self.status = []
+        self.quat_i = []
+        self.quat_j = []
+        self.quat_k = []
+        self.quat_r = []
+        self.accuracy = []
+
+    def _parse(self, header, raw_data):
+        pass
+
+        # res = {}
+        Bnr = namedtuple(
+            "Bnr",
+            "status quat_i quat_j quat_k quat_r accuracy",
+        )
+
+        # print("Raw data length (BNR) ",len(raw_data))
+        data = Bnr._make(struct.unpack("<bhhhhh", raw_data))
+        self.timestamps.append(header["Header"].timestamp)
+        self.status.append(data.status)
+        self.quat_i.append(data.quat_i)
+        self.quat_j.append(data.quat_j)
+        self.quat_k.append(data.quat_k)
+        self.quat_r.append(data.quat_r)
+        self.accuracy.append(data.accuracy)
+
+    def as_dict(self):
+        dic = {
+            "timestamp": self.timestamps,
+            "sensor_status": self.status,
+            "quat_i": self.quat_i,
+            "quat_j": self.quat_j,
+            "quat_k": self.quat_k,
+            "quat_r": self.quat_r,
+            "sensor_accuracy": self.accuracy,
+        }
+        return dic
+
+    def get_name(self):
+        return "BNR"
 
 class RDO_Data(Generic_Data):
     def __init__(self):
