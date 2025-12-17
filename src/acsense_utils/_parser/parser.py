@@ -20,6 +20,8 @@ from .external_sensor_data import (
     RTC_Data,
     Atlas_Data,
     Turbidity_DF_Data,
+    Generic_Serial_Data,
+    Edge_Detect_Data
 )
 from .headers import Generic_Header, Internal_ADC_Header, SPI_ADC_Header
 from .internal_sensor_data import IMU_Data, Internal_PTS_Data
@@ -202,6 +204,23 @@ class Parser:
                 "ID2": "U",
                 "parser": Turbidity_DF_Data(),
             },
+            {
+                "msg_id": 0x1F,
+                "header": gen_hdr,
+                "ID1": "S",
+                "ID2": "R",
+                "parser": Generic_Serial_Data(),
+            },
+            {
+                "msg_id": 0x20,
+                "header": gen_hdr,
+                "ID1": "E",
+                "ID2": "D",
+                "parser": Edge_Detect_Data(),
+            },
+            
+
+            
         ]
         self.block_size = block_size
         self.sens_dict = {}

@@ -578,3 +578,81 @@ class Turbidity_DF_Data(Generic_Data):
 
     def get_name(self):
         return "Turbidity"
+
+
+class Edge_Detect_Data(Generic_Data):
+    def __init__(self):
+        self.timestamps = []
+        # self.data = []
+        self.pin_num = []
+        self.port = []
+        self.type = []
+        self.rsv = []
+        self.pin_name = []
+
+    def bin2str(self, data):
+        data.view(f'S{data.shape[0]}')
+        return data.tobytes().decode()
+
+    def _parse(self, header, raw_data):
+        self.timestamps.append(header["Header"].timestamp)
+        data = np.frombuffer(raw_data, count=4, dtype=np.uint8)
+        self.pin_num.append(data[0])
+        self.port.append(data[1])
+        self.type.append(data[2])
+        self.rsv.append(data[3])
+
+        data = np.frombuffer(raw_data, offset=4, count=8, dtype=np.uint8)
+        self.pin_name.append(self.bin2str(data))
+        # print(header)
+
+    def as_dict(self):
+        res = {}
+        res["timestamp"] = self.timestamps
+        res["pin_num"] = self.pin_num
+        res["port"] = self.port
+        res["type"] = self.type
+        res["rsv"] = self.rsv
+        res["pin_name"] = self.pin_name
+        return res
+
+    def get_name(self):
+        return "Edge"
+
+
+class Generic_Serial_Data(Generic_Data):
+    def __init__(self):
+        self.timestamps = []
+        # self.data = []
+        self.direction = []
+        self.user_id = []
+        self.format = []
+        self.serial_string = []
+
+    def bin2str(self, data):
+        data.view(f'S{data.shape[0]}')
+        return data.tobytes().decode()
+
+    def _parse(self, header, raw_data):
+        data = np.frombuffer(raw_data, count=1, dtype=np.uint8)
+        self.timestamps.append(header["Header"].timestamp)
+        # self.data.append(data)
+        self.direction.append(data[0])
+        data = np.frombuffer(raw_data, count=8, dtype=np.uint8, offset=1)
+        self.user_id.append(self.bin2str(data))
+        data = np.frombuffer(raw_data, count=8, dtype=np.uint8, offset=9)
+        self.format.append(self.bin2str(data))
+        data = np.frombuffer(raw_data, count=84, dtype=np.uint8, offset=17)
+        self.serial_string.append(self.bin2str(data))
+
+    def as_dict(self):
+        res = {}
+        res["timestamp"] = self.timestamps
+        res["user_id"] = self.user_id
+        res["direction"] = self.direction
+        res["format"] = self.format
+        res["serial_string"] = self.serial_string
+        return res
+
+    def get_name(self):
+        return "GENSER"
