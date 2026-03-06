@@ -18,6 +18,10 @@ from .external_sensor_data import (
     Ping_Data,
     RDO_Data,
     RTC_Data,
+    Atlas_Data,
+    Turbidity_DF_Data,
+    Generic_Serial_Data,
+    Edge_Detect_Data
 )
 from .headers import Generic_Header, Internal_ADC_Header, SPI_ADC_Header
 from .internal_sensor_data import IMU_Data, Internal_PTS_Data
@@ -50,10 +54,10 @@ logger = logging.getLogger(__name__)
 
 
 class Parser:
-    def __init__(self, block_size=512, double_sample_rate=False):
+    def __init__(self, block_size=512, double_sample_rate=False, use_int_sr=False):
         gen_hdr = Generic_Header()
         int_adc_header = Internal_ADC_Header(double_sample_rate)
-        spi_adc_header = SPI_ADC_Header()
+        spi_adc_header = SPI_ADC_Header(use_int_sr)
         self.headers = {
             0x09: spi_adc_header,
             0x0B: gen_hdr,
@@ -186,6 +190,37 @@ class Parser:
                 "ID2": "R",
                 "parser": BNR_Data(),
             },
+            {
+                "msg_id": 0x12,
+                "header": gen_hdr,
+                "ID1": "A",
+                "ID2": "T",
+                "parser": Atlas_Data(),
+            },
+            {
+                "msg_id": 0x12,
+                "header": gen_hdr,
+                "ID1": "T",
+                "ID2": "U",
+                "parser": Turbidity_DF_Data(),
+            },
+            {
+                "msg_id": 0x1F,
+                "header": gen_hdr,
+                "ID1": "S",
+                "ID2": "R",
+                "parser": Generic_Serial_Data(),
+            },
+            {
+                "msg_id": 0x20,
+                "header": gen_hdr,
+                "ID1": "E",
+                "ID2": "D",
+                "parser": Edge_Detect_Data(),
+            },
+            
+
+            
         ]
         self.block_size = block_size
         self.sens_dict = {}
@@ -315,14 +350,16 @@ class Parser:
             header = Generic_Header()
         h = header.read_header(f)
         data = f.read(h["payload_bytes"])
+        # print("Pre loop")
+
         for d in self.parsers:
             if d["msg_id"] == msg_id:
                 if h["Type"] == "Generic":
-                    for d in self.parsers:
-                        if d["ID1"] == chr(h["Header"].id1) and d["ID2"] == chr(
-                            h["Header"].id2
-                        ):
-                            d["parser"]._parse(h, data)
+                    if d["ID1"] == chr(h["Header"].id1) and d["ID2"] == chr(
+                        h["Header"].id2
+                    ):
+                        d["parser"]._parse(h, data)
+                        # print("Call Parse")
                 elif h["Type"] == "InternalADC":
                     d["parser"]._parse(h, data)
 
