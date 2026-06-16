@@ -35,7 +35,11 @@ class GPS_Data(Generic_Data):
         }
 
     def _parse(self, header, raw_data):
-        st = raw_data.decode(encoding="UTF-8").strip("\n\r\x00")
+        try:
+            st = raw_data.decode(encoding="UTF-8").strip("\n\r\x00")
+        except UnicodeDecodeError as e:
+            print("Invalid string from GPS " + repr(e))
+            return
         data = copy.copy(self.template_data)
         data["timestamp"] = header["Header"].timestamp
         data["raw_nmea"] = st
@@ -432,6 +436,7 @@ class BNO_Data(Generic_Data):
     def get_name(self):
         return "BNO"
 
+
 class BNR_Data(Generic_Data):
     def __init__(self):
         self.timestamps = []
@@ -475,6 +480,7 @@ class BNR_Data(Generic_Data):
 
     def get_name(self):
         return "BNR"
+
 
 class RDO_Data(Generic_Data):
     def __init__(self):
@@ -591,7 +597,7 @@ class Edge_Detect_Data(Generic_Data):
         self.pin_name = []
 
     def bin2str(self, data):
-        data.view(f'S{data.shape[0]}')
+        data.view(f"S{data.shape[0]}")
         return data.tobytes().decode()
 
     def _parse(self, header, raw_data):
@@ -630,7 +636,7 @@ class Generic_Serial_Data(Generic_Data):
         self.serial_string = []
 
     def bin2str(self, data):
-        data.view(f'S{data.shape[0]}')
+        data.view(f"S{data.shape[0]}")
         return data.tobytes().decode()
 
     def _parse(self, header, raw_data):
