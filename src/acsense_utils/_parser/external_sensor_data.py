@@ -225,12 +225,16 @@ class External_PTS_Data_Bar30(Generic_Data):
     def _parse(self, header, raw_data):
         raw_pressure = np.frombuffer(raw_data, count=1, dtype=np.int32)
         raw_temp = np.frombuffer(raw_data, count=1, offset=4, dtype=np.int32)
-        self.pressure.append(float(raw_pressure) / 10.0 / 1000)
-        self.temperature.append(float(raw_temp) / 100.0)
+        try:
+            self.pressure.append(float(raw_pressure[0]) / 10.0 / 1000)
+            self.temperature.append(float(raw_temp[0]) / 100.0)
+        except TypeError:
+            print("This is raw_pressure:")
+            print(raw_pressure)
         self.timestamps.append(header["Header"].timestamp)
 
     def as_dict(self):
-        return {
+        return { 
             "timestamp": self.timestamps,
             "pressure_bar": self.pressure,
             "temperature_c": self.temperature,
