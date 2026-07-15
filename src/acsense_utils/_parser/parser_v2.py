@@ -9,15 +9,15 @@ from acsense_utils._parser.external_sensor_data import *
 from acsense_utils._parser.internal_sensor_data import *
 from datetime import datetime, timezone
 from multiprocessing import Pool, cpu_count
+import gc
+
 '''
 PARSER_V2 parses through AC and SENS files in directories and returns CSV files 
 with an appended epoch column. The exported files are in folder 'parsed_{path}' with headers 'AC' and 'SENS'. '''
  
 def main():
-
     interval = 10 #future development
     path_src=input("Enter path to input files or directory to be parsed: ")
-    
 
     use_int = False #also future development (false is external ADC)
 
@@ -40,8 +40,6 @@ def main():
         
         sens_files = [f for f in files_to_process if os.path.basename(f).startswith("SENS")]
         ac_files = [f for f in files_to_process if os.path.basename(f).startswith("AC")]
-
-        
 
         #proccess sens first
         for fn in sens_files:
@@ -139,7 +137,7 @@ def get_epoch_vars(rtc_data, gps_data, genser_data):
     #check for valid GPS fix first
         nmea = gps_data["raw_nmea"]
         for i, sentence in enumerate(nmea):
-            if sentence.startswith("$GPRMC") and sentence.split(",")[2] == "A":
+            if (sentence.startswith("$GPRMC") or sentence.startswith("$GNRMC")) and sentence.split(",")[2] == "A":
                 fields = sentence.split(",")
                 time_str = fields[1]   
                 date_str = fields[9]
