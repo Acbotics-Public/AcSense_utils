@@ -20,7 +20,7 @@ def main():
     '''----------------------------------------------------------------------------------------------------'''
     '''Configurables here. Change to desired input full path name and interval of exports'''
     interval = 10 #seconds
-    path="/home/acbotics2/AcSense_utils/PLUTOS_testdata-20260617T163459Z-3-001"
+    path="/home/acbotics2/AcSense_utils/eng_test_data"
     '''----------------------------------------------------------------------------------------------------'''
         #with open("cached_data2.pkl", "rb") as file:
         #done = pickle.load(file)
