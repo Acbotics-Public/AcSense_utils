@@ -9,22 +9,22 @@ from acsense_utils._parser.external_sensor_data import *
 from acsense_utils._parser.internal_sensor_data import *
 from datetime import datetime, timezone
 from multiprocessing import Pool, cpu_count
+import bisect
 import gc
 
 '''
 PARSER_V2 parses through AC and SENS files in directories and returns CSV files 
 with an appended epoch column. The exported files are in folder 'parsed_{path}' with headers 'AC' and 'SENS'. '''
- 
+DEFAULT_TICK_RATE = 1e-8  
+
 def main():
     interval = 10 #future development
     path_src=input("Enter path to input files or directory to be parsed: ")
 
     use_int = False #also future development (false is external ADC)
-
-    start_time = 0
-    offset = 0
-    epoch_bool = False
-
+    rtc_data = []
+    gps_data = []
+    genser_data = []
     if path_src is None or not os.path.exists(path_src):
         print(f"Input path {path_src} is not valid. Please re-run and re-enter a valid path.")
         return None
@@ -47,18 +47,18 @@ def main():
             if result is None or result[0] is None:
                 print(f"Skipping {fn} due to parse error. Check if SENS file is corrupted")
                 continue
-            start_time, offset, epoch_bool = result
+            rtc_data, gps_data, genser_data = result
     
         num_workers = min(cpu_count(), len(ac_files))
         print(f"Processing {len(ac_files)} AC files with {num_workers} workers")
         with Pool(processes=num_workers) as pool:
-            pool.map(process_ac_file, [(fn, path_src, use_int, start_time, offset, epoch_bool) for fn in ac_files])
+            pool.map(process_ac_file, [(fn, path_src, use_int, rtc_data, gps_data, genser_data) for fn in ac_files])
         print("Done!")
     else:
         if os.path.basename(path_src).startswith("SENS"):
             result = process_sens_file(path_src, path_src)
         elif os.path.basename(path_src).startswith("AC"):
-            result = process_ac_file(args = (path_src, path_src, use_int, start_time, offset, epoch_bool))
+            result = process_ac_file(args = (path_src, path_src, use_int, rtc_data, gps_data, genser_data))
 
 
 def process_sens_file(fn, path_src):
@@ -89,7 +89,6 @@ def process_sens_file(fn, path_src):
                         gps_data = parser_df
                     elif obj == "Generic_Serial_Data":
                         genser_data = parser_df
-        start_time, offset, epoch_bool = get_epoch_vars(rtc_data,gps_data,genser_data)
         for i in range(len(parser_list)): #add epochs to all sens data
             parser_obj = parser_list[i]['header']
             obj = (type(parser_list[i]['parser']).__name__) 
@@ -97,18 +96,22 @@ def process_sens_file(fn, path_src):
                 parser_dict = parser_list[i]['parser'].as_dict()
                 if any(parser_dict.values()):
                     parser_df = pd.DataFrame(parser_dict)
-                    if epoch_bool:
-                        parser_df = append_epoch(parser_df,start_time,offset)
+                    if not gps_data.empty or not genser_data.empty:
+                        print(f"Adding Epoch_GPS Col to {obj}")
+                        parser_df = append_epoch_gps(parser_df, gps_data,genser_data)
+                    if not rtc_data.empty:
+                        print(f"Adding Epoch_RTC Col to {obj}")
+                        parser_df = append_epoch_rtc(parser_df, rtc_data)
                     out_path = get_output_path(f"./parsed_{path_rel}", "SENS", sensor_type=obj, filename=f"{obj}.csv")
                     parser_df.to_csv(out_path, index=False)
                     print(f"Exported file {obj}.csv")
                 else:
                     print(f"{obj} has no data. No output file will be made.")
-    return start_time, offset, epoch_bool
+    return rtc_data, gps_data, genser_data
 
 
 def process_ac_file(args):
-    fn, path_src, use_int, start_time, offset, epoch_bool = args    
+    fn, path_src, use_int, rtc_data, gps_data, genser_data = args    
     path_rel = os.path.basename(path_src).split("/")[-1]
     base = os.path.splitext(os.path.basename(fn))[0]
     print(f"Parsing {base} ...")
@@ -120,13 +123,145 @@ def process_ac_file(args):
             if type(parser_obj) is SPI_ADC_Header: #external
                 parser_dict = parser_list[i]['parser'].as_dict() #['timestamp', 'sample_count', 'channel_0', 'channel_1', 'channel_2', 'channel_3', 'channel_4', 'channel_5', 'channel_6', 'channel_7']
                 parser_df = pd.DataFrame(parser_dict)
-                if epoch_bool:
-                    parser_df = append_epoch(parser_df, start_time, offset)
+                if not gps_data.empty or not genser_data.empty:
+                    print(f"Adding Epoch_GPS Col to {base}")
+                    parser_df = append_epoch_gps(parser_df, gps_data,genser_data)
+                if not rtc_data.empty:
+                    print(f"Adding Epoch_RTC Col to {base}")
+                    parser_df = append_epoch_gps(parser_df, gps_data,genser_data)
                 f_name = f"{base}.csv"
                 out_path = get_output_path(f"./parsed_{path_rel}", "AC", filename=f_name)
                 parser_df.to_csv(out_path, index=False)
                 print(f"Exported file {f_name}")
                 break                
+
+
+
+def gps_interp(ticks, gps_fixes):
+    ticks = np.asarray(ticks, dtype=float)
+    xp = gps_fixes['timestamp'].to_numpy(dtype=float)
+    yp = gps_fixes['dt'].to_numpy(dtype=float)
+    n = len(xp)
+
+    #one fix
+    if n == 1:
+        return yp[0] + (ticks - xp[0]) * DEFAULT_TICK_RATE
+
+    epoch = np.interp(ticks, xp, yp)
+
+    ##ticks fall before xp[0]
+    before = np.searchsorted(ticks, xp[0], side='left')
+    if before > 0:
+        slope = (yp[1] - yp[0]) / (xp[1] - xp[0])
+        epoch[:before] = yp[0] + (ticks[:before] - xp[0]) * slope
+
+    #ticks fall after xp[-1]
+    after = np.searchsorted(ticks, xp[-1], side='right')
+    if after < len(ticks):
+        slope = (yp[-1] - yp[-2]) / (xp[-1] - xp[-2])
+        epoch[after:] = yp[-1] + (ticks[after:] - xp[-1]) * slope
+
+    return epoch
+
+def rtc_interp(ticks, rtc_fixes):
+    ticks = np.asarray(ticks, dtype=float)
+
+    rtc_fixes = rtc_fixes.sort_values('timestamp')
+    xp = rtc_fixes['timestamp'].to_numpy(dtype=float)
+    yp = rtc_fixes['dt'].to_numpy(dtype=float)
+    n = len(xp)
+
+    if n == 1:
+        return yp[0] + (ticks - xp[0]) * DEFAULT_TICK_RATE
+
+    epoch = np.interp(ticks, xp, yp)
+
+    before = np.searchsorted(ticks, xp[0], side='left')
+    if before > 0:
+        slope = (yp[1] - yp[0]) / (xp[1] - xp[0])
+        epoch[:before] = yp[0] + (ticks[:before] - xp[0]) * slope
+
+    after = np.searchsorted(ticks, xp[-1], side='right')
+    if after < len(ticks):
+        slope = (yp[-1] - yp[-2]) / (xp[-1] - xp[-2])
+        epoch[after:] = yp[-1] + (ticks[after:] - xp[-1]) * slope
+
+    return epoch
+
+def get_gps_fixes(gps_data, genser_data):
+    rows = []
+    if not gps_data.empty:
+        nmea = gps_data["raw_nmea"]
+        for i, sentence in enumerate(nmea):
+            try:
+                if (sentence.startswith("$GPRMC") or sentence.startswith("$GNRMC")) and sentence.split(",")[2] == "A":
+                    fields = sentence.split(",")
+                    time_str = fields[1]
+                    date_str = fields[9]
+                    dt = datetime.strptime(date_str + time_str[:6], "%d%m%y%H%M%S").replace(tzinfo=timezone.utc)
+                    dt_float = dt.timestamp()
+                    rows.append({
+                        'timestamp': gps_data["timestamp"].iloc[i],
+                        'dt': dt_float
+                    })
+            except IndexError as e:
+                continue
+    elif not genser_data.empty:
+        for i, fmt in enumerate(genser_data['format']):
+            try:
+                if fmt.startswith("NMEA") and genser_data['serial_string'].iloc[i].split(",")[2] == "A":
+                    fields = genser_data['serial_string'].iloc[i].split(",")
+                    time_str = fields[1]
+                    date_str = fields[9]
+                    dt = datetime.strptime(date_str + time_str[:6], "%d%m%y%H%M%S").replace(tzinfo=timezone.utc)
+                    dt_float = dt.timestamp()
+                    rows.append({
+                        'timestamp': genser_data["timestamp"].iloc[i],
+                        'dt': dt_float
+                    })
+            except IndexError as e:
+                continue
+    gps_fixes = pd.DataFrame(rows, columns=['timestamp', 'dt'])
+    return gps_fixes
+
+#converts timestr to epochs 
+def get_rtc_fixes(rtc_data):
+    rows = []
+    if not rtc_data.empty:
+        for i in range(len(rtc_data)):
+            try:
+                rtc_start = rtc_data["timestr"].iloc[i]
+                dt = datetime.strptime(rtc_start, "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+                dt_float = dt.timestamp()
+                rows.append({
+                    'timestamp': rtc_data["timestamp"].iloc[i],
+                    'dt': dt_float
+                })
+            except (ValueError, IndexError):
+                continue
+    rtc_fixes = pd.DataFrame(rows, columns=['timestamp', 'dt'])
+    return rtc_fixes
+
+def append_epoch_gps(parser_df, gps_data, genser_data):
+    gps_fixes = get_gps_fixes(gps_data, genser_data)
+    if gps_fixes.empty:
+        print("No valid GPS fixes found. Epoch_GPS column will not be added.")
+        return parser_df
+    epoch = gps_interp(parser_df['timestamp'],gps_fixes)
+    parser_df.insert(1, 'Epoch_GPS', epoch)
+    return parser_df
+
+def append_epoch_rtc(parser_df, rtc_data):
+    rtc_fixes = get_rtc_fixes(rtc_data)
+
+    if rtc_fixes.empty:
+        print("No valid RTC data found. Epoch_RTC column will not be added.")
+        return parser_df
+
+    epoch = rtc_interp(parser_df['timestamp'], rtc_fixes)
+    insert_at = 2 if 'Epoch_GPS' in parser_df.columns else 1
+    parser_df.insert(insert_at, 'Epoch_RTC', epoch)
+    return parser_df
 
 
 def get_epoch_vars(rtc_data, gps_data, genser_data):
@@ -169,7 +304,6 @@ def get_epoch_vars(rtc_data, gps_data, genser_data):
         print("RTC and GPS data not available. Epoch column will not be added.")
         epoch_bool = False
     return start_time, offset, epoch_bool
-
 
 def append_epoch(parser_df, start_time, offset):
     tick = 1e-8  
