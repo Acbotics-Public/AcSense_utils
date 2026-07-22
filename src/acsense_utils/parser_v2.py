@@ -29,15 +29,15 @@ def run_parser_cli():
         default=None, 
         help="Path to input files or directory")
     parser.add_argument(
-        "--use_int",
+        "-ie", "--int_ext",
         nargs="?", 
-        help="Use INT (Internal ADC) Mode on launch (can be switched on CLI)",
+        help="String input: INT - Interal (1 channel) or EXT - External (16 channel) ADC for AC data",
     )
     parser.add_argument(
         "-c", "--count",
         type=int,
-        default=cpu_count()-2,
-        help=f"Number of cores. Defaults to {cpu_count() - 2}.",
+        default=min(1,cpu_count()-2),
+        help=f"Number of cores. Defaults to {min(1,cpu_count() - 2)}.",
     )
     parser.add_argument(
         "-o", "--output_directory",
@@ -49,7 +49,7 @@ def run_parser_cli():
     args = parser.parse_args()
 
     path_src = args.path_src or input("Enter path to input files or directory to be parsed: ")
-    use_int = args.use_int or input("Enter INT for internal ADC or EXT for external ADC: ")
+    use_int = args.int_ext or input("Enter INT for internal ADC or EXT for external ADC: ")
     if use_int == "INT":
         use_int = True
     elif use_int == "EXT":
@@ -92,11 +92,18 @@ def run_parser_cli():
         num_workers = min(num_cores, len(ac_files))
 
         args_list = [(fn, use_int, output_dir, rtc_data, gps_data, genser_data) for fn in ac_files]
+        print("Parsing AC files: ")
         with Pool(processes=num_workers) as pool:
-            result = pool.map(process_ac_file, args_list)
+            result = list(
+            tqdm(
+                pool.imap_unordered(process_ac_file, args_list),
+                total=len(ac_files),
+            )
+            )
+        print(f"Parsed {len(ac_files)} AC files")
         if not os.path.isdir(os.path.join(output_dir,"AC")):
             print(f"AC files were not exported. Check if AC data in input path exists and type of AC data. use_int is set to {use_int}")
-        print("Done!")
+        print("Done")
     else:
         if os.path.basename(path_src).startswith("SENS"):
             result = process_sens_file(path_src,output_dir)
@@ -107,7 +114,10 @@ def run_parser_cli():
 def process_sens_file(fn, output_dir):
     p = ModParser()
     base = os.path.basename(fn)
-    print(f"Parsing {base} ...")
+    exported = []
+    gps_bool = False
+    rtc_bool = False
+    print(f"Parsing {base}: ")
     if base.startswith("SENS"):
         try:
             parser_list = p.parse_sense_file(fn)
@@ -124,13 +134,13 @@ def process_sens_file(fn, output_dir):
                 if type(parser_obj) is Generic_Header:
                     parser_dict = parser_list[i]['parser'].as_dict()
                     parser_df = pd.DataFrame(parser_dict)
-                    print(f"Loaded {obj}")
+                    #print(f"Loaded {obj}")
                     if obj == "RTC_Data":
-                        rtc_data = parser_df
+                        rtc_data = get_rtc_fixes(parser_df)
                     elif obj == "GPS_Data":
-                        gps_data = parser_df
+                        gps_data = get_gps_data(gps_data=parser_df)
                     elif obj == "Generic_Serial_Data":
-                        genser_data = parser_df
+                        genser_data = get_gps_data(genser_data=parser_df)
         for i in range(len(parser_list)): #add epochs to all sens data
             parser_obj = parser_list[i]['header']
             obj = (type(parser_list[i]['parser']).__name__) 
@@ -139,16 +149,24 @@ def process_sens_file(fn, output_dir):
                 if any(parser_dict.values()):
                     parser_df = pd.DataFrame(parser_dict)
                     if not gps_data.empty or not genser_data.empty:
-                        #print(f"Adding Epoch_GPS Col to {obj}")
                         parser_df = append_epoch_gps(parser_df, gps_data,genser_data)
+                        gps_bool = True
                     if not rtc_data.empty:
                         #print(f"Adding Epoch_RTC Col to {obj}")
                         parser_df = append_epoch_rtc(parser_df, rtc_data)
+                        rtc_bool = True
                     out_path = get_output_path(output_dir, "SENS", sensor_type=obj, filename=f"{obj}.csv")
                     parser_df.to_csv(out_path, index=False)
-                    print(f"Exported file {obj}.csv")
-                else:
-                    print(f"{obj} has no data. No output file will be made.")
+                    exported.append(f"{obj}.csv")
+                #else:
+                    #print(f"{obj} has no data. No output file will be made.")
+    added = []
+    if gps_bool:
+        added.append("Added Epoch_GPS column")
+    if rtc_bool:
+        added.append("Added Epoch_RTC column.")
+    msg = ", ".join(added) if added else "No Epoch column added."
+    print(f"Exported {', '.join(exported)}. \n{msg}")
     return rtc_data, gps_data, genser_data
 
 
@@ -158,12 +176,12 @@ def process_ac_file(args):
     p = ModParser()
     if base.startswith("AC"):
         #status_queue.put((base, "parsing"))
-        print(f"parsing {base}")
+        #print(f"parsing {base}")
         parser_list = p.parse_ac_file(fn, use_int)
         for i in range(len(parser_list)):
             parser_obj = parser_list[i]['header']
             if (type(parser_obj) is SPI_ADC_Header and use_int == False) or (type(parser_obj) is Internal_ADC_Header and use_int == True):
-                parser_dict = parser_list[i]['parser'].as_dict() #['timestamp', 'sample_count', 'channel_0', 'channel_1', 'channel_2', 'channel_3', 'channel_4', 'channel_5', 'channel_6', 'channel_7']
+                parser_dict = parser_list[i]['parser'].as_dict()
                 parser_df = pd.DataFrame(parser_dict)
                 if not gps_data.empty or not genser_data.empty:
                     parser_df = append_epoch_gps(parser_df, gps_data,genser_data)
@@ -172,12 +190,8 @@ def process_ac_file(args):
                 f_name = f"{base}.csv"
                 out_path = get_output_path(output_dir, "AC", filename=f_name)
                 parser_df.to_csv(out_path, index=False)
-                #status_queue.put((base, "exported"))
-                print(f"exported {f_name}")
+                #print(f"exported {f_name}")
                 return 
-    #status_queue.put((base, "no data"))
-
-                             
 
 def base_number(dir, n=1):
     output_dir = os.path.join(dir, f"parsed_{n}")
@@ -186,7 +200,6 @@ def base_number(dir, n=1):
         return base_number(dir, n)
     else:
         return n
-
 
 def gps_interp(ticks, gps_fixes):
     ticks = np.asarray(ticks, dtype=float)
@@ -228,7 +241,7 @@ def rtc_interp(ticks, rtc_fixes):
         epoch[after:] = yp[-1] + (ticks[after:] - xp[-1]) * slope
     return epoch
 
-def get_gps_data(gps_data, genser_data):
+def get_gps_data(gps_data=pd.DataFrame(), genser_data=pd.DataFrame()):
     rows = []
     first_fix = False
     if not gps_data.empty:
@@ -267,6 +280,7 @@ def get_gps_data(gps_data, genser_data):
                 continue
     gps_fixes = pd.DataFrame(rows, columns=['timestamp', 'dt'])
     return gps_fixes
+
 def get_rtc_fixes(rtc_data):
     rows = []
     if not rtc_data.empty:
@@ -285,22 +299,18 @@ def get_rtc_fixes(rtc_data):
     return rtc_fixes
 
 def append_epoch_gps(parser_df, gps_data, genser_data):
-    gps_fixes = get_gps_data(gps_data, genser_data)
-    if gps_fixes.empty:
+    if gps_data.empty:
         #print("No valid GPS fixes found. Epoch_GPS column will not be added.")
         return parser_df
-    epoch = gps_interp(parser_df['timestamp'],gps_fixes)
+    epoch = gps_interp(parser_df['timestamp'],gps_data)
     parser_df.insert(1, 'Epoch_GPS', epoch)
     return parser_df
 
 def append_epoch_rtc(parser_df, rtc_data):
-    rtc_fixes = get_rtc_fixes(rtc_data)
-
-    if rtc_fixes.empty:
-        print("No valid RTC data found. Epoch_RTC column will not be added.")
+    if rtc_data.empty:
+        #print("No valid RTC data found. Epoch_RTC column will not be added.")
         return parser_df
-
-    epoch = rtc_interp(parser_df['timestamp'], rtc_fixes)
+    epoch = rtc_interp(parser_df['timestamp'], rtc_data)
     insert_at = 2 if 'Epoch_GPS' in parser_df.columns else 1
     parser_df.insert(insert_at, 'Epoch_RTC', epoch)
     return parser_df

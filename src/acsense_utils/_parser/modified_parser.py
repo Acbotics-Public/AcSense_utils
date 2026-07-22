@@ -3,6 +3,7 @@
 import logging
 import os
 from acsense_utils._parser.parser import Parser  # correct
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +20,16 @@ class ModParser(Parser):
             print("file size is not printing!")
             return self.parsers
 
-        with open(fn, "rb") as f:
-            while True:
-                    start_tell = f.tell()
-                    self.read_block("INT", f)
-                    if f.tell() >= file_size:
-                        break
+        with open(fn, "rb") as f, tqdm(total=file_size, unit="B", unit_scale=True) as pbar:
+            while f.tell() < file_size:
+                pos = f.tell()
+                self.read_block("INT", f)
+                new_pos = f.tell()
+                pbar.update(new_pos - pos)
+                if new_pos == pos:
+                    raise RuntimeError(
+                        f"read_block() did not advance the file pointer at offset {pos}"
+                    )
         return self.parsers
 
     def parse_ac_file(self, fn, use_int, export=False, output_dir=None):
