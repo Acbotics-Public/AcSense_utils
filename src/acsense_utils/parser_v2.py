@@ -1,4 +1,3 @@
-import logging
 import os
 from acsense_utils._parser.modified_parser import ModParser
 import glob
@@ -8,9 +7,8 @@ from acsense_utils._parser.headers import *
 from acsense_utils._parser.external_sensor_data import *
 from acsense_utils._parser.internal_sensor_data import *
 from datetime import datetime, timezone
-from multiprocessing import Pool, cpu_count
-import bisect
-import gc
+from tqdm import tqdm
+from multiprocessing import Pool, cpu_count, Manager
 import argparse
 
 '''
@@ -19,7 +17,7 @@ with an appended epoch column from an interpolation from RTC and/or GPS. The exp
 files are in folder 'parsed_{path}' with headers 'AC' and 'SENS'. '''
 DEFAULT_TICK_RATE = 1e-8  
 
-def main():
+def run_parser_cli():
     parser = argparse.ArgumentParser(
         prog="AcSense Parser",
         description="Utility to load, parse and export AcSense data from device logs from CLI",
@@ -33,7 +31,6 @@ def main():
     parser.add_argument(
         "--use_int",
         nargs="?", 
-        default=True,
         help="Use INT (Internal ADC) Mode on launch (can be switched on CLI)",
     )
     parser.add_argument(
@@ -42,6 +39,13 @@ def main():
         default=cpu_count()-2,
         help=f"Number of cores. Defaults to {cpu_count() - 2}.",
     )
+    parser.add_argument(
+        "-o", "--output_directory",
+        type=str,
+        nargs="?",
+        help=f"Output directory for parsed files. Defaults to path_src/parsed_(n)",
+        )
+
     args = parser.parse_args()
 
     path_src = args.path_src or input("Enter path to input files or directory to be parsed: ")
@@ -51,8 +55,12 @@ def main():
     elif use_int == "EXT":
         use_int = False
     num_cores = args.count
-
-    output_dir = os.path.join(path_src, f"parsed_{base_number(path_src)}")
+    if args.output_directory:
+        path_out = args.output_directory
+    else:
+        path_out = path_src
+    output_dir = os.path.join(path_out, f"parsed_{base_number(path_out)}")
+    
     print(f"Your output directory is {output_dir}")
     rtc_data = []
     gps_data = []
@@ -75,33 +83,34 @@ def main():
 
         #proccess sens first
         for fn in sens_files:
-            result = process_sens_file(fn, path_src,output_dir)
+            result = process_sens_file(fn,output_dir)
             if result is None or result[0] is None:
                 print(f"Skipping {fn} due to parse error. Check if SENS file is corrupted")
                 continue
             rtc_data, gps_data, genser_data = result
     
         num_workers = min(num_cores, len(ac_files))
-        print(f"Processing {len(ac_files)} AC files with {num_workers} workers")
+
+        args_list = [(fn, use_int, output_dir, rtc_data, gps_data, genser_data) for fn in ac_files]
         with Pool(processes=num_workers) as pool:
-            pool.map(process_ac_file, [(fn, path_src, use_int, output_dir,rtc_data, gps_data, genser_data) for fn in ac_files])
+            result = pool.map(process_ac_file, args_list)
         if not os.path.isdir(os.path.join(output_dir,"AC")):
-            print(f"AC was not exported. Double check data in input path and type of AC data. use_int is set to {use_int}")
+            print(f"AC files were not exported. Check if AC data in input path exists and type of AC data. use_int is set to {use_int}")
         print("Done!")
     else:
         if os.path.basename(path_src).startswith("SENS"):
-            result = process_sens_file(path_src, path_src,output_dir)
+            result = process_sens_file(path_src,output_dir)
         elif os.path.basename(path_src).startswith("AC"):
-            result = process_ac_file(args = (path_src, path_src, use_int, output_dir,rtc_data, gps_data, genser_data))
+            result = process_ac_file(args = (path_src, use_int, output_dir,rtc_data, gps_data, genser_data))
 
 
-def process_sens_file(fn, path_src, output_dir):
+def process_sens_file(fn, output_dir):
     p = ModParser()
     base = os.path.basename(fn)
     print(f"Parsing {base} ...")
     if base.startswith("SENS"):
         try:
-            parser_list = p.parse_sense_file(os.path.join(path_src, fn))
+            parser_list = p.parse_sense_file(fn)
         except UnicodeDecodeError as e:
             print(f"UnicodeDecodeError in {fn}: {e}, skipping file")
             return None, None, False
@@ -144,16 +153,16 @@ def process_sens_file(fn, path_src, output_dir):
 
 
 def process_ac_file(args):
-    fn, path_src, use_int, output_dir, rtc_data, gps_data, genser_data = args    
+    fn, use_int, output_dir, rtc_data, gps_data, genser_data= args    
     base = os.path.splitext(os.path.basename(fn))[0]
     p = ModParser()
     if base.startswith("AC"):
-        print(f"Parsing {base} ...")
-        parser_list = p.parse_ac_file(os.path.join(path_src, fn), use_int)
+        #status_queue.put((base, "parsing"))
+        print(f"parsing {base}")
+        parser_list = p.parse_ac_file(fn, use_int)
         for i in range(len(parser_list)):
             parser_obj = parser_list[i]['header']
             if (type(parser_obj) is SPI_ADC_Header and use_int == False) or (type(parser_obj) is Internal_ADC_Header and use_int == True):
-                print("hello?")
                 parser_dict = parser_list[i]['parser'].as_dict() #['timestamp', 'sample_count', 'channel_0', 'channel_1', 'channel_2', 'channel_3', 'channel_4', 'channel_5', 'channel_6', 'channel_7']
                 parser_df = pd.DataFrame(parser_dict)
                 if not gps_data.empty or not genser_data.empty:
@@ -163,8 +172,11 @@ def process_ac_file(args):
                 f_name = f"{base}.csv"
                 out_path = get_output_path(output_dir, "AC", filename=f_name)
                 parser_df.to_csv(out_path, index=False)
-                print(f"Exported file {f_name}")
-                break 
+                #status_queue.put((base, "exported"))
+                print(f"exported {f_name}")
+                return 
+    #status_queue.put((base, "no data"))
+
                              
 
 def base_number(dir, n=1):
@@ -255,8 +267,6 @@ def get_gps_data(gps_data, genser_data):
                 continue
     gps_fixes = pd.DataFrame(rows, columns=['timestamp', 'dt'])
     return gps_fixes
-
-#converts timestr to epochs 
 def get_rtc_fixes(rtc_data):
     rows = []
     if not rtc_data.empty:
@@ -306,5 +316,4 @@ def get_output_path(base_dir, category, sensor_type=None, filename=None):
  
 
 if __name__ == "__main__":
-    main()
-
+    run_parser_cli()

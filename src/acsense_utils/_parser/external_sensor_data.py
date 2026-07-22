@@ -602,7 +602,7 @@ class Edge_Detect_Data(Generic_Data):
 
     def bin2str(self, data):
         data.view(f"S{data.shape[0]}")
-        return data.tobytes().decode()
+        return data.tobytes().decode(errors="replace")
 
     def _parse(self, header, raw_data):
         self.timestamps.append(header["Header"].timestamp)
@@ -641,7 +641,7 @@ class Generic_Serial_Data(Generic_Data):
 
     def bin2str(self, data):
         data.view(f"S{data.shape[0]}")
-        return data.tobytes().decode()
+        return data.tobytes().decode(errors="replace")
 
     def _parse(self, header, raw_data):
         data = np.frombuffer(raw_data, count=1, dtype=np.uint8)

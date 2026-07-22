@@ -12,7 +12,7 @@ class ModParser(Parser):
     def __init__(self, block_size=512, double_sample_rate=False, use_int_sr=False): #same as parser
         super().__init__(block_size, double_sample_rate, use_int_sr) 
 
-    def parse_sense_file(self, fn): #got rid of prog_bar and tqdm depedencies
+    def parse_sense_file(self, fn): 
         self.sens_dict = {}
         file_size = os.stat(fn).st_size
         if file_size == 0:
@@ -23,7 +23,7 @@ class ModParser(Parser):
             while True:
                     start_tell = f.tell()
                     self.read_block("INT", f)
-                    if f.tell() >= file_size: #i think this was causing the loop there was no break condition
+                    if f.tell() >= file_size:
                         break
         return self.parsers
 
