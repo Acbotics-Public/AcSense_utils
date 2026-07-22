@@ -26,7 +26,7 @@ def main():
     parser.add_argument("-c", "--count", type=int, default=1, help="Number of cores")
 
 
-    use_int = False #also future development (false is external ADC)
+    use_int = True #also future development (false is external ADC)
     rtc_data = []
     gps_data = []
     genser_data = []
@@ -125,8 +125,9 @@ def process_ac_file(args):
         parser_list = p.parse_ac_file(os.path.join(path_src, fn), use_int)
         for i in range(len(parser_list)):
             parser_obj = parser_list[i]['header']
-            if type(parser_obj) is SPI_ADC_Header: #external
+            if (type(parser_obj) is SPI_ADC_Header and use_int == False) or (type(parser_obj) is Internal_ADC_Header and use_int == True):
                 parser_dict = parser_list[i]['parser'].as_dict() #['timestamp', 'sample_count', 'channel_0', 'channel_1', 'channel_2', 'channel_3', 'channel_4', 'channel_5', 'channel_6', 'channel_7']
+                print(f"My header is {type(parser_obj)} and use_int is {use_int}") 
                 parser_df = pd.DataFrame(parser_dict)
                 if not gps_data.empty or not genser_data.empty:
                     parser_df = append_epoch_gps(parser_df, gps_data,genser_data)
@@ -136,7 +137,9 @@ def process_ac_file(args):
                 out_path = get_output_path(base_dir, "AC", filename=f_name)
                 parser_df.to_csv(out_path, index=False)
                 print(f"Exported file {f_name}")
-                break                
+                break 
+            else: print(f"My header is {type(parser_obj)} and use_int {use_int}") 
+                             
 
 
 
@@ -244,7 +247,7 @@ def append_epoch_gps(parser_df, gps_data, genser_data):
         #print("No valid GPS fixes found. Epoch_GPS column will not be added.")
         return parser_df
     epoch = gps_interp(parser_df['timestamp'],gps_fixes)
-    parser_df.insert(1, 'Epoch_GPS_1', epoch)
+    parser_df.insert(1, 'Epoch_GPS', epoch)
     return parser_df
 
 def append_epoch_rtc(parser_df, rtc_data):
@@ -255,8 +258,8 @@ def append_epoch_rtc(parser_df, rtc_data):
         return parser_df
 
     epoch = rtc_interp(parser_df['timestamp'], rtc_fixes)
-    insert_at = 2 if 'Epoch_GPS_1' in parser_df.columns else 1
-    parser_df.insert(insert_at, 'Epoch_RTC_1', epoch)
+    insert_at = 2 if 'Epoch_GPS' in parser_df.columns else 1
+    parser_df.insert(insert_at, 'Epoch_RTC', epoch)
     return parser_df
 
 def get_output_path(base_dir, category, sensor_type=None, filename=None):
