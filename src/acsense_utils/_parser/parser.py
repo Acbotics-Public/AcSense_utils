@@ -423,3 +423,83 @@ class Parser:
             next_block_start = curr_pos + offset
             f.seek(next_block_start)
         return
+
+
+################################################# optimized functions ############################################################################
+
+    def parse_record_ac_opt(
+        self,
+        f,
+        hydrophone_ADC="INT",
+        timeonly=False,
+        export=False,
+        output_dir=None,
+        input_filename=None,
+    ):
+        if hydrophone_ADC == "INT":
+            msg_id = 0x0F
+            msg_type = "InternalADC"
+        else:
+            msg_id = 0x09
+            msg_type = "SPI_ADC"
+        header = self.headers[msg_id]
+        h = header.read_header(f)
+        if h:
+            data = f.read(h["payload_bytes"])
+            for d in self.parsers:
+                if d["msg_id"] == msg_id and h["Type"] == msg_type:
+                    d["parser"]._parse_opt(
+                        h,
+                        data,
+                        export=export,
+                        output_dir=output_dir,
+                        input_filename=input_filename,
+                    )
+
+    def read_block_opt(
+        self,
+        hydrophone_ADC,
+        f,
+        timeonly=False,
+        ac_file=False,
+        export=False,
+        output_dir=None,
+        input_filename=None,
+    ):
+        block_start = f.tell()
+        if not ac_file:
+            header = self.read_block_header(f)
+        else:
+            header = {"num_entries": 1}
+        already_told = 0
+        if ac_file:
+            self.parse_record_ac_opt(
+                f,
+                hydrophone_ADC=hydrophone_ADC,
+                timeonly=timeonly,
+                export=export,
+                output_dir=output_dir,
+                input_filename=input_filename,
+            )
+
+        else:
+            for i in range(header["num_entries"]):
+                data = self.parse_record(
+                    f, hydrophone_ADC=hydrophone_ADC, timeonly=timeonly
+                )
+                next_index = data["next_index"] + block_start
+                if next_index < f.tell() and not already_told:
+                    logger.info(
+                        "Seeking backwards. Issue with parse? "
+                        + repr(next_index - f.tell())
+                    )
+                    break
+                    already_told = 1
+                f.seek(next_index)
+            curr_pos = f.tell()
+            # start on next block
+            offset = self.block_size - (curr_pos % self.block_size)
+            offset = offset % self.block_size
+            next_block_start = curr_pos + offset
+            f.seek(next_block_start)
+        return

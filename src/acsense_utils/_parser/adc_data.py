@@ -291,6 +291,42 @@ class Internal_ADC_Data:
             self.data = []
             self.sample_count = []
 
+    def _parse_opt(self,
+        header,
+        raw_data,
+        signed=True,
+        export=False,
+        output_dir=None,
+        input_filename=None,
+    ):
+        num_channels = header["Header"].channels
+        bytes_per_channel = header["Header"].bytesPerChannel
+        num_records = header["Header"].dataRecordsPerBuffer
+        dtype = np.int16 if signed else np.uint16
+
+        count = num_records * num_channels
+        data = np.zeros((num_channels, num_records), dtype=dtype)
+
+        try:
+            arr = np.frombuffer(raw_data, dtype, count)
+            data = arr.reshape(num_records, num_channels).T
+        except Exception as e:
+                    logger.error(
+                        f"Exception encountered while parsing data:"
+                        f"\n{e}"
+                        f"\nHeader is:"
+                        f"\n{header}"
+                    )
+
+        self.data.append(data)
+        self.timestamps.append(header["Header"].timestamp)
+        self.sample_count.append(header["Header"].sampleCount)
+
+        self.sample_rate = header["Header"].sampleRate
+        self.channels = header["Header"].channels
+        self.bitsPerChannel = header["Header"].bitsPerChannel
+        self.bytesPerChannel = header["Header"].bytesPerChannel
+
     def as_dict(self):
         dic = {}
         dic["timestamp"] = []
@@ -313,7 +349,41 @@ class Internal_ADC_Data:
                     for j in range(self.data[ind].shape[0]):
                         dic["channel_" + repr(j)].append(self.data[ind][j, i])
         return dic
+    
+    def as_dict_opt(self):
+        dic = {}
+        if len(self.data) == 0:
+            dic["timestamp"] = []
+            dic["sample_count"] = []
+            return dic
 
+        num_channels = self.data[0].shape[0]
+        mult = 1.0e8 * (1.0 / self.sample_rate) if self.sample_rate else 1
+
+        timestamp_chunks = []
+        sample_count_chunks = []
+        channel_chunks = []
+        for _ in range(num_channels):
+            channel_chunks.append([])
+
+        for ind in range(len(self.data)):
+            cur_len = self.data[ind].shape[1]
+            if self.data[ind].shape[0] == 0 or cur_len == 0:
+                continue
+            tt = self.timestamps[ind]
+            cur_count = self.sample_count[ind]
+
+            timestamp_chunks.append(tt + np.arange(cur_len) * mult)
+            sample_count_chunks.append(cur_count + np.arange(cur_len))
+            for j in range(num_channels):
+                channel_chunks[j].append(self.data[ind][j, :])
+
+        dic["timestamp"] = np.concatenate(timestamp_chunks) if timestamp_chunks else []
+        dic["sample_count"] = np.concatenate(sample_count_chunks) if sample_count_chunks else []
+        for j in range(num_channels):
+            dic[f"channel_{j}"] = np.concatenate(channel_chunks[j]) if channel_chunks[j] else []
+        return dic
+    
     def write_csv(self, outfile, progress=True, pbar_position=None):
         data_len = len(self.data)
         if data_len > 0:

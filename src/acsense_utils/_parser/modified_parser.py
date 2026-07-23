@@ -40,7 +40,7 @@ class ModParser(Parser):
         with open(fn, "rb") as f:
             while True:
                 start_tell = f.tell()
-                self.read_block(
+                self.read_block_opt(
                     "INT" if use_int else "EXT",f, ac_file=True,export=export,output_dir=output_dir,input_filename=fn,
                 )
                 if start_tell == f.tell() or f.tell() >= os.fstat(f.fileno()).st_size:

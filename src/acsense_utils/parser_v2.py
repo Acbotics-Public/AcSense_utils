@@ -36,8 +36,8 @@ def run_parser_cli():
     parser.add_argument(
         "-c", "--count",
         type=int,
-        default=min(1,cpu_count()-2),
-        help=f"Number of cores. Defaults to {min(1,cpu_count() - 2)}.",
+        default=max(1,cpu_count()-2),
+        help=f"Number of cores. Defaults to {max(1,cpu_count() - 2)}.",
     )
     parser.add_argument(
         "-o", "--output_directory",
@@ -58,13 +58,19 @@ def run_parser_cli():
     if args.output_directory:
         path_out = args.output_directory
     else:
-        path_out = path_src
-    output_dir = os.path.join(path_out, f"parsed_{base_number(path_out)}")
+        if os.path.isdir(path_src):
+            path_out = path_src
+        else:
+            path_out = os.path.split(path_src)[0]
+
     
+    output_dir = os.path.join(path_out, f"parsed_{base_number(path_out)}")
+
     print(f"Your output directory is {output_dir}")
-    rtc_data = []
-    gps_data = []
-    genser_data = []
+    print(f"Using {num_cores}")
+    rtc_data = pd.DataFrame()
+    gps_data = pd.DataFrame()
+    genser_data = pd.DataFrame()
     if path_src is None or not os.path.exists(path_src):
         print(f"Input path {path_src} is not valid. Please re-run and re-enter a valid path.")
         return None
@@ -169,7 +175,7 @@ def process_sens_file(fn, output_dir):
     print(f"Exported {', '.join(exported)}. \n{msg}")
     return rtc_data, gps_data, genser_data
 
-
+import time
 def process_ac_file(args):
     fn, use_int, output_dir, rtc_data, gps_data, genser_data= args    
     base = os.path.splitext(os.path.basename(fn))[0]
@@ -177,11 +183,19 @@ def process_ac_file(args):
     if base.startswith("AC"):
         #status_queue.put((base, "parsing"))
         #print(f"parsing {base}")
+        s_time = time.perf_counter()
         parser_list = p.parse_ac_file(fn, use_int)
+        e_time = time.perf_counter()
+        elapsed_time = e_time - s_time
+        #(f"opt parsed in {elapsed_time:.6f} seconds")
         for i in range(len(parser_list)):
             parser_obj = parser_list[i]['header']
             if (type(parser_obj) is SPI_ADC_Header and use_int == False) or (type(parser_obj) is Internal_ADC_Header and use_int == True):
-                parser_dict = parser_list[i]['parser'].as_dict()
+                s_time = time.perf_counter()
+                parser_dict = parser_list[i]['parser'].as_dict_opt()
+                e_time = time.perf_counter()
+                elapsed_time = e_time - s_time
+                #print(f"To_dict in {elapsed_time:.6f} seconds")
                 parser_df = pd.DataFrame(parser_dict)
                 if not gps_data.empty or not genser_data.empty:
                     parser_df = append_epoch_gps(parser_df, gps_data,genser_data)
@@ -189,7 +203,11 @@ def process_ac_file(args):
                     parser_df = append_epoch_rtc(parser_df, rtc_data)
                 f_name = f"{base}.csv"
                 out_path = get_output_path(output_dir, "AC", filename=f_name)
+                s_time = time.perf_counter()
                 parser_df.to_csv(out_path, index=False)
+                e_time = time.perf_counter()
+                elapsed_time = e_time - s_time
+                #print(f"To_csv in {elapsed_time:.6f} seconds")
                 #print(f"exported {f_name}")
                 return 
 
