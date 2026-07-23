@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count, Manager
 import argparse
+import time
+
 
 '''
 PARSER_V2 parses through AC and SENS files in directories and returns CSV files 
@@ -31,13 +33,13 @@ def run_parser_cli():
     parser.add_argument(
         "-ie", "--int_ext",
         nargs="?", 
-        help="String input: INT - Interal (1 channel) or EXT - External (16 channel) ADC for AC data",
+        help="String input: INT - Internal (1 channel) or EXT - External (16 channel) ADC for AC data",
     )
     parser.add_argument(
         "-c", "--count",
         type=int,
         default=max(1,cpu_count()-2),
-        help=f"Number of cores. Defaults to {max(1,cpu_count() - 2)}.",
+        help=f"Number of workers. Defaults to {max(1,cpu_count() - 2)}.",
     )
     parser.add_argument(
         "-o", "--output_directory",
@@ -67,7 +69,7 @@ def run_parser_cli():
     output_dir = os.path.join(path_out, f"parsed_{base_number(path_out)}")
 
     print(f"Your output directory is {output_dir}")
-    print(f"Using {num_cores}")
+
     rtc_data = pd.DataFrame()
     gps_data = pd.DataFrame()
     genser_data = pd.DataFrame()
@@ -85,30 +87,39 @@ def run_parser_cli():
             return None
         
         sens_files = [f for f in files_to_process if os.path.basename(f).startswith("SENS")]
-        ac_files = [f for f in files_to_process if os.path.basename(f).startswith("AC")]
-
-        #proccess sens first
+        ac_files_all = [f for f in files_to_process if os.path.basename(f).startswith("AC")]
+        indicies = []
+        i=0
         for fn in sens_files:
+            base = os.path.splitext(os.path.basename(fn))[0]
+            split_index = int(base.split("_")[-1])
+            indicies.append(split_index-1)
+        indicies.append(len(ac_files_all)-1)
+        for fn in sens_files:
+            ac_files = ac_files_all[indicies[i]: indicies[i+1]]
+            i += 1
             result = process_sens_file(fn,output_dir)
             if result is None or result[0] is None:
                 print(f"Skipping {fn} due to parse error. Check if SENS file is corrupted")
                 continue
             rtc_data, gps_data, genser_data = result
     
-        num_workers = min(num_cores, len(ac_files))
+            num_workers = min(num_cores, len(ac_files))
 
-        args_list = [(fn, use_int, output_dir, rtc_data, gps_data, genser_data) for fn in ac_files]
-        print("Parsing AC files: ")
-        with Pool(processes=num_workers) as pool:
-            result = list(
-            tqdm(
-                pool.imap_unordered(process_ac_file, args_list),
-                total=len(ac_files),
-            )
-            )
-        print(f"Parsed {len(ac_files)} AC files")
-        if not os.path.isdir(os.path.join(output_dir,"AC")):
-            print(f"AC files were not exported. Check if AC data in input path exists and type of AC data. use_int is set to {use_int}")
+            args_list = [(fn, use_int, output_dir, rtc_data, gps_data, genser_data) for fn in ac_files]
+            print(f"Parsing AC files with {num_workers} workers: ")
+            s = time.perf_counter()
+            with Pool(processes=num_workers) as pool:
+                result = list(
+                tqdm(
+                    pool.imap_unordered(process_ac_file, args_list),
+                    total=len(ac_files),
+                )
+                )
+            e = time.perf_counter()
+            print(f"Parsed {len(ac_files)} AC files in {(e-s):.3f} seconds.")
+            if not os.path.isdir(os.path.join(output_dir,"AC")):
+                print(f"AC files were not exported. Check if AC data in input path exists and type of AC data. use_int is set to {use_int}")
         print("Done")
     else:
         if os.path.basename(path_src).startswith("SENS"):
@@ -120,6 +131,8 @@ def run_parser_cli():
 def process_sens_file(fn, output_dir):
     p = ModParser()
     base = os.path.basename(fn)
+    base_file = os.path.splitext(os.path.basename(fn))[0]
+    split_index = int(base_file.split("_")[-1])
     exported = []
     gps_bool = False
     rtc_bool = False
@@ -161,9 +174,9 @@ def process_sens_file(fn, output_dir):
                         #print(f"Adding Epoch_RTC Col to {obj}")
                         parser_df = append_epoch_rtc(parser_df, rtc_data)
                         rtc_bool = True
-                    out_path = get_output_path(output_dir, "SENS", sensor_type=obj, filename=f"{obj}.csv")
+                    out_path = get_output_path(output_dir, "SENS", sensor_type=obj, filename=f"{obj}_{split_index}.csv")
                     parser_df.to_csv(out_path, index=False)
-                    exported.append(f"{obj}.csv")
+                    exported.append(f"{obj}_{split_index}.csv")
                 #else:
                     #print(f"{obj} has no data. No output file will be made.")
     added = []
@@ -175,7 +188,6 @@ def process_sens_file(fn, output_dir):
     print(f"Exported {', '.join(exported)}. \n{msg}")
     return rtc_data, gps_data, genser_data
 
-import time
 def process_ac_file(args):
     fn, use_int, output_dir, rtc_data, gps_data, genser_data= args    
     base = os.path.splitext(os.path.basename(fn))[0]
