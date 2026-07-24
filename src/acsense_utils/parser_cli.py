@@ -167,7 +167,7 @@ def process_sens_file(fn, output_dir):
                 parser_dict = parser_list[i]['parser'].as_dict()
                 if any(parser_dict.values()):
                     parser_df = pd.DataFrame(parser_dict)
-                    if not gps_data.empty or not genser_data.empty:
+                    if not gps_data.empty:
                         parser_df = append_epoch_gps(parser_df, gps_data)
                         gps_bool = True
                     if not genser_data.empty:
