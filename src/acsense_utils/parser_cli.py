@@ -98,7 +98,6 @@ def run_parser_cli():
         indicies.append(len(ac_files_all)-1)
         for fn in sens_files:
             ac_files = ac_files_all[indicies[i]: indicies[i+1]]
-            i += 1
             result = process_sens_file(fn,output_dir)
             if result is None or result[0] is None:
                 print(f"Skipping {fn} due to parse error. Check if SENS file is corrupted")
@@ -108,7 +107,8 @@ def run_parser_cli():
             num_workers = min(num_cores, len(ac_files))
 
             args_list = [(fn, use_int, output_dir, rtc_data, gps_data, genser_data) for fn in ac_files]
-            print(f"Parsing AC files with {num_workers} workers: ")
+            print(f"Parsing AC files {indicies[i]+1} to {indicies[i+1]+1} with {num_workers} workers: ")
+            i += 1
             s = time.perf_counter()
             with Pool(processes=num_workers) as pool:
                 result = list(
@@ -211,8 +211,10 @@ def process_ac_file(args):
                 elapsed_time = e_time - s_time
                 #print(f"To_dict in {elapsed_time:.6f} seconds")
                 parser_df = pd.DataFrame(parser_dict)
-                if not gps_data.empty or not genser_data.empty:
-                    parser_df = append_epoch_gps(parser_df, gps_data,genser_data)
+                if not gps_data.empty:
+                    parser_df = append_epoch_gps(parser_df, gps_data)
+                if not genser_data.empty:
+                    parser_df = append_epoch_genser(parser_df,genser_data)
                 if not rtc_data.empty:
                     parser_df = append_epoch_rtc(parser_df, rtc_data)
                 f_name = f"{base}.csv"
@@ -288,7 +290,7 @@ def get_gps_data(gps_data=pd.DataFrame(), genser_data=pd.DataFrame()):
                         time_str = fields[1]
                         date_str = fields[9]
                         dt = datetime.strptime(date_str + time_str[:6], "%d%m%y%H%M%S").replace(tzinfo=timezone.utc)
-                        dt_float = float(gps_data['unix_time'])
+                        dt_float = dt.timestamp()
                         rows.append({
                             'timestamp': gps_data["timestamp"].iloc[i],
                             'dt': dt_float
@@ -312,7 +314,7 @@ def get_gps_data(gps_data=pd.DataFrame(), genser_data=pd.DataFrame()):
                             })
                 except (IndexError, ValueError) as e:
                     continue
-            if not rows.empty: tqdm.write("No positional GPS fixes found, time fix may have been aquired, use judgement on Epoch_GPS")
+            if not rows: tqdm.write("No positional GPS fixes found, time fix may have been aquired, use judgement on Epoch_GPS")
     elif not genser_data.empty:
         for i, fmt in enumerate(genser_data['format']):
             try:
