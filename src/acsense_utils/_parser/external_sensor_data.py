@@ -36,7 +36,7 @@ class GPS_Data(Generic_Data):
 
     def _parse(self, header, raw_data):
         try:
-            st = raw_data.decode(encoding="UTF-8").strip("\n\r\x00")
+            st = raw_data.decode(encoding="UTF-8", errors="replace").strip("\n\r\x00")
         except UnicodeDecodeError as e:
             print("Invalid string from GPS " + repr(e))
             return

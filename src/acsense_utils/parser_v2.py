@@ -26,14 +26,15 @@ def run_parser_cli():
         epilog="Acbotics Research, LLC",
     )
     parser.add_argument(
-        "path_src", 
+        "-p", "--path_src", 
         nargs="?", 
         default=None, 
         help="Path to input files or directory")
     parser.add_argument(
         "-ie", "--int_ext",
+        type = str,
         nargs="?", 
-        help="String input: INT - Internal (1 channel) or EXT - External (16 channel) ADC for AC data",
+        help="String input: INT for Internal (1 channel) ADC or EXT for External (16 channel) ADC for AC data",
     )
     parser.add_argument(
         "-c", "--count",
@@ -141,24 +142,23 @@ def process_sens_file(fn, output_dir):
         try:
             parser_list = p.parse_sense_file(fn)
         except UnicodeDecodeError as e:
-            print(f"UnicodeDecodeError in {fn}: {e}, skipping file")
-            return None, None, False
-        except Exception as e:
-            print(f"Exception in {fn}: {e}, skipping file")
-            return None, None, False
+            print(f"UnicodeDecodeError in {fn}: {e}")
         for i in range(len(parser_list)): #grab rtc and gps data first
             parser_obj = parser_list[i]['header']
             obj = (type(parser_list[i]['parser']).__name__) 
             if obj == "RTC_Data" or obj == "GPS_Data" or obj == "Generic_Serial_Data":
                 if type(parser_obj) is Generic_Header:
-                    parser_dict = parser_list[i]['parser'].as_dict()
-                    parser_df = pd.DataFrame(parser_dict)
-                    #print(f"Loaded {obj}")
                     if obj == "RTC_Data":
+                        parser_dict = parser_list[i]['parser'].as_dict()
+                        parser_df = pd.DataFrame(parser_dict)
                         rtc_data = get_rtc_fixes(parser_df)
                     elif obj == "GPS_Data":
+                        parser_dict = parser_list[i]['parser'].as_dict()
+                        parser_df = pd.DataFrame(parser_dict)
                         gps_data = get_gps_data(gps_data=parser_df)
                     elif obj == "Generic_Serial_Data":
+                        parser_dict = parser_list[i]['parser'].as_dict()
+                        parser_df = pd.DataFrame(parser_dict)
                         genser_data = get_gps_data(genser_data=parser_df)
         for i in range(len(parser_list)): #add epochs to all sens data
             parser_obj = parser_list[i]['header']
@@ -168,10 +168,12 @@ def process_sens_file(fn, output_dir):
                 if any(parser_dict.values()):
                     parser_df = pd.DataFrame(parser_dict)
                     if not gps_data.empty or not genser_data.empty:
-                        parser_df = append_epoch_gps(parser_df, gps_data,genser_data)
+                        parser_df = append_epoch_gps(parser_df, gps_data)
                         gps_bool = True
+                    if not genser_data.empty:
+                        parser_df = append_epoch_genser(parser_df, genser_data)
+                        gps_bool=True
                     if not rtc_data.empty:
-                        #print(f"Adding Epoch_RTC Col to {obj}")
                         parser_df = append_epoch_rtc(parser_df, rtc_data)
                         rtc_bool = True
                     out_path = get_output_path(output_dir, "SENS", sensor_type=obj, filename=f"{obj}_{split_index}.csv")
@@ -286,13 +288,31 @@ def get_gps_data(gps_data=pd.DataFrame(), genser_data=pd.DataFrame()):
                         time_str = fields[1]
                         date_str = fields[9]
                         dt = datetime.strptime(date_str + time_str[:6], "%d%m%y%H%M%S").replace(tzinfo=timezone.utc)
-                        dt_float = dt.timestamp()
+                        dt_float = float(gps_data['unix_time'])
                         rows.append({
                             'timestamp': gps_data["timestamp"].iloc[i],
                             'dt': dt_float
                         })
             except (IndexError, ValueError) as e:
                 continue
+        if first_fix == False: ## no valid fixes but may have been a time fix
+            for i, sentence in enumerate(nmea):
+                try:
+                    if (sentence.startswith("$GPRMC") or sentence.startswith("$GNRMC")):
+                        fields = sentence.split(",")
+                        time_str = fields[1]
+                        date_str = fields[9]
+                        dt = datetime.strptime(date_str + time_str[:6], "%d%m%y%H%M%S").replace(tzinfo=timezone.utc)
+                        dt_float = dt.timestamp()
+                        now = time.time()
+                        if now - 31536000 * 5 <= dt_float <= now + 31536000 * 5:
+                            rows.append({
+                                'timestamp': gps_data["timestamp"].iloc[i],
+                                'dt': dt_float
+                            })
+                except (IndexError, ValueError) as e:
+                    continue
+            if not rows.empty: tqdm.write("No positional GPS fixes found, time fix may have been aquired, use judgement on Epoch_GPS")
     elif not genser_data.empty:
         for i, fmt in enumerate(genser_data['format']):
             try:
@@ -306,7 +326,7 @@ def get_gps_data(gps_data=pd.DataFrame(), genser_data=pd.DataFrame()):
                         'timestamp': genser_data["timestamp"].iloc[i],
                         'dt': dt_float
                     })
-            except IndexError as e:
+            except (IndexError, ValueError) as e:
                 continue
     gps_fixes = pd.DataFrame(rows, columns=['timestamp', 'dt'])
     return gps_fixes
@@ -328,18 +348,17 @@ def get_rtc_fixes(rtc_data):
     rtc_fixes = pd.DataFrame(rows, columns=['timestamp', 'dt'])
     return rtc_fixes
 
-def append_epoch_gps(parser_df, gps_data, genser_data):
-    if gps_data.empty:
-        #print("No valid GPS fixes found. Epoch_GPS column will not be added.")
-        return parser_df
+def append_epoch_gps(parser_df, gps_data):
     epoch = gps_interp(parser_df['timestamp'],gps_data)
     parser_df.insert(1, 'Epoch_GPS', epoch)
     return parser_df
 
+def append_epoch_genser(parser_df, genser):
+    epoch = gps_interp(parser_df['timestamp'],genser)
+    parser_df.insert(1, 'Epoch_GPS', epoch)
+    return parser_df
+
 def append_epoch_rtc(parser_df, rtc_data):
-    if rtc_data.empty:
-        #print("No valid RTC data found. Epoch_RTC column will not be added.")
-        return parser_df
     epoch = rtc_interp(parser_df['timestamp'], rtc_data)
     insert_at = 2 if 'Epoch_GPS' in parser_df.columns else 1
     parser_df.insert(insert_at, 'Epoch_RTC', epoch)
