@@ -11,7 +11,7 @@ from tqdm import tqdm
 from multiprocessing import Pool, cpu_count, Manager
 import argparse
 import time
-
+import math
 
 '''
 PARSER_V2 parses through AC and SENS files in directories and returns CSV files 
@@ -39,6 +39,7 @@ def run_parser_cli():
     parser.add_argument(
         "-c", "--count",
         type=int,
+        nargs="?",
         default=max(1,cpu_count()-2),
         help=f"Number of workers. Defaults to {max(1,cpu_count() - 2)}.",
     )
@@ -118,7 +119,7 @@ def run_parser_cli():
                 )
                 )
             e = time.perf_counter()
-            print(f"Parsed {len(ac_files)} AC files in {(e-s):.3f} seconds.")
+            print(f"Parsed {len(ac_files)} AC files in {math.floor((e-s)/60)} minutes and {((e-s)%60):.3f} seconds.")
             if not os.path.isdir(os.path.join(output_dir,"AC")):
                 print(f"AC files were not exported. Check if AC data in input path exists and type of AC data. use_int is set to {use_int}")
         print("Done")
@@ -289,7 +290,10 @@ def get_gps_data(gps_data=pd.DataFrame(), genser_data=pd.DataFrame()):
                         fields = sentence.split(",")
                         time_str = fields[1]
                         date_str = fields[9]
-                        dt = datetime.strptime(date_str + time_str[:6], "%d%m%y%H%M%S").replace(tzinfo=timezone.utc)
+                        try:
+                            dt = datetime.strptime(date_str + time_str, "%d%m%y%H%M%S.%f").replace(tzinfo=timezone.utc)
+                        except ValueError:
+                            dt = datetime.strptime(date_str + time_str[:6], "%d%m%y%H%M%S").replace(tzinfo=timezone.utc)
                         dt_float = dt.timestamp()
                         rows.append({
                             'timestamp': gps_data["timestamp"].iloc[i],
@@ -304,7 +308,10 @@ def get_gps_data(gps_data=pd.DataFrame(), genser_data=pd.DataFrame()):
                         fields = sentence.split(",")
                         time_str = fields[1]
                         date_str = fields[9]
-                        dt = datetime.strptime(date_str + time_str[:6], "%d%m%y%H%M%S").replace(tzinfo=timezone.utc)
+                        try:
+                            dt = datetime.strptime(date_str + time_str, "%d%m%y%H%M%S.%f").replace(tzinfo=timezone.utc)
+                        except ValueError:
+                            dt = datetime.strptime(date_str + time_str[:6], "%d%m%y%H%M%S").replace(tzinfo=timezone.utc)
                         dt_float = dt.timestamp()
                         now = time.time()
                         if now - 31536000 * 5 <= dt_float <= now + 31536000 * 5:
@@ -314,7 +321,7 @@ def get_gps_data(gps_data=pd.DataFrame(), genser_data=pd.DataFrame()):
                             })
                 except (IndexError, ValueError) as e:
                     continue
-            if not rows: tqdm.write("No positional GPS fixes found, time fix may have been aquired, use judgement on Epoch_GPS")
+            if rows: tqdm.write("No positional GPS fixes found, time fix may have been aquired, use judgement on Epoch_GPS")
     elif not genser_data.empty:
         for i, fmt in enumerate(genser_data['format']):
             try:
