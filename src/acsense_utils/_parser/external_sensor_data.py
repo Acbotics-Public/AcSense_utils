@@ -36,7 +36,7 @@ class GPS_Data(Generic_Data):
 
     def _parse(self, header, raw_data):
         try:
-            st = raw_data.decode(encoding="UTF-8").strip("\n\r\x00")
+            st = raw_data.decode(encoding="UTF-8", errors="replace").strip("\n\r\x00")
         except UnicodeDecodeError as e:
             print("Invalid string from GPS " + repr(e))
             return
@@ -225,12 +225,16 @@ class External_PTS_Data_Bar30(Generic_Data):
     def _parse(self, header, raw_data):
         raw_pressure = np.frombuffer(raw_data, count=1, dtype=np.int32)
         raw_temp = np.frombuffer(raw_data, count=1, offset=4, dtype=np.int32)
-        self.pressure.append(float(raw_pressure) / 10.0 / 1000)
-        self.temperature.append(float(raw_temp) / 100.0)
+        try:
+            self.pressure.append(float(raw_pressure[0]) / 10.0 / 1000)
+            self.temperature.append(float(raw_temp[0]) / 100.0)
+        except TypeError:
+            print("This is raw_pressure:")
+            print(raw_pressure)
         self.timestamps.append(header["Header"].timestamp)
 
     def as_dict(self):
-        return {
+        return { 
             "timestamp": self.timestamps,
             "pressure_bar": self.pressure,
             "temperature_c": self.temperature,
@@ -598,7 +602,7 @@ class Edge_Detect_Data(Generic_Data):
 
     def bin2str(self, data):
         data.view(f"S{data.shape[0]}")
-        return data.tobytes().decode()
+        return data.tobytes().decode(errors="replace")
 
     def _parse(self, header, raw_data):
         self.timestamps.append(header["Header"].timestamp)
@@ -637,7 +641,7 @@ class Generic_Serial_Data(Generic_Data):
 
     def bin2str(self, data):
         data.view(f"S{data.shape[0]}")
-        return data.tobytes().decode()
+        return data.tobytes().decode(errors="replace")
 
     def _parse(self, header, raw_data):
         data = np.frombuffer(raw_data, count=1, dtype=np.uint8)

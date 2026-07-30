@@ -16,3 +16,5 @@ dependencies = [
 [project.scripts]
 acsense-parse = "acsense_utils.parser_gui:run_parser_gui"
 acsense-plot = "acsense_utils.plotter:run_plotter_cli"
+acsense-parse_cli = "acsense_utils.parser_cli:run_parser_cli"
+
